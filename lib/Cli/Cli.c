@@ -43,8 +43,8 @@
 #define CLI_SECTION_SPACER    '-'
 #define CLI_OUTPUT_WIDTH      50
 #define CLI_CANARY            (0xA5A5A5A5U)
-#define CLI_OK_PROMPT         "\033[32m[OK]  \033[0m "
-#define CLI_FAIL_PROMPT       "\033[31m[FAIL]\033[0m "
+#define CLI_OK_PROMPT         "[OK] "
+#define CLI_FAIL_PROMPT       "[FAIL] "
 
 /* #############################################################################
  * # static variables
