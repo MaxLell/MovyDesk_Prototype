@@ -9,8 +9,8 @@
 // ###########################################################################
 // # Private function declarations
 // ###########################################################################
-void console_task(void* parameter);
-static void prv_assert_failed(const char* file, uint32_t line, const char* expr);
+void console_task(void *parameter);
+static void prv_assert_failed(const char *file, uint32_t line, const char *expr);
 
 // ###########################################################################
 // # Task handles
@@ -21,42 +21,55 @@ TaskHandle_t console_task_handle = NULL;
 // # Setup and Loop
 // ###########################################################################
 
-void setup() {
+constexpr int LED_PIN = 2;
+
+void setup()
+{
   // Initialize custom assert
   custom_assert_init(prv_assert_failed);
-  
+
   // Create console task
   xTaskCreate(
-    console_task,        // Task function
-    "ConsoleTask",       // Task name
-    4096,                // Stack size (words)
-    NULL,                // Task parameters
-    1,                   // Task priority (0 = lowest, configMAX_PRIORITIES - 1 = highest)
-    &console_task_handle // Task handle
+      console_task,        // Task function
+      "ConsoleTask",       // Task name
+      4096,                // Stack size (words)
+      NULL,                // Task parameters
+      1,                   // Task priority (0 = lowest, configMAX_PRIORITIES - 1 = highest)
+      &console_task_handle // Task handle
   );
-  
+
   Serial.println("System initialized. Console task started.");
+
+  // Setup LED pin
+  pinMode(LED_PIN, OUTPUT);
 }
 
-void loop() {
-  vTaskDelay(pdMS_TO_TICKS(1000)); // Delay 1 second to prevent watchdog reset
+void loop()
+{
+  // Toggle LED - for a visual heartbeat
+  static bool led_state = false;
+  led_state = !led_state;
+  digitalWrite(LED_PIN, led_state ? HIGH : LOW);
+  delay(1000);
 }
 
 // ###########################################################################
 // # Task implementations
 // ###########################################################################
 
-void console_task(void* parameter) {
+void console_task(void *parameter)
+{
   (void)parameter; // Unused parameter
 
-    // Initialize console
+  // Initialize console
   console_init();
-  
+
   // Task main loop
-  while (1) {
+  while (1)
+  {
     // Run the console processing
     console_run();
-    
+
     delay(5); // Small delay to yield CPU
   }
 }
@@ -65,9 +78,9 @@ void console_task(void* parameter) {
 // # Private function implementations
 // ###########################################################################
 
-static void prv_assert_failed(const char* file, uint32_t line, const char* expr)
+static void prv_assert_failed(const char *file, uint32_t line, const char *expr)
 {
-  Serial.printf("ASSERT FAILED: %s:%u - %s\n", file, line, expr);
+  Serial.printf("[ASSERT FAILED]: %s:%u - %s\n", file, line, expr);
   // In embedded systems, we might want to reset instead of infinite loop
   while (1)
   {
