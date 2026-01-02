@@ -76,7 +76,6 @@ static bool prv_is_char_in_string(char character, const char* in_string, uint8_t
 static void prv_autocomplete_command(void);
 
 static int prv_cmd_handler_help(int argc, char* argv[], void* context);
-static int prv_cmd_handler_clear_screen(int argc, char* argv[], void* context);
 
 static void prv_verify_object_integrity(const cli_cfg_t* const in_ptCfg);
 
@@ -107,12 +106,7 @@ void cli_init(cli_cfg_t* const inout_module_cfg, cli_put_char_fn in_put_char_fn)
 
     // Register the default commands
     cli_binding_t help_cmd_binding = {"help", prv_cmd_handler_help, NULL, "List all commands"};
-    cli_binding_t clear_cmd_binding = {"clear", prv_cmd_handler_clear_screen, NULL, "Clear the screen"};
     cli_register(&help_cmd_binding);
-    cli_register(&clear_cmd_binding);
-
-    // reset the cli
-    prv_cmd_handler_clear_screen(0, NULL, NULL);
 
     // Print the prompt
     prv_write_cli_prompt();
@@ -225,6 +219,7 @@ void cli_process()
         prv_write_string("Status -> ");
         prv_write_string((cmd_status == CLI_OK_STATUS) ? CLI_OK_PROMPT : CLI_FAIL_PROMPT);
         prv_write_char('\n');
+        prv_plot_lines(CLI_SECTION_SPACER, CLI_OUTPUT_WIDTH);
     }
 
     // Reset the cli buffer and write the prompt again for a new user input
@@ -408,7 +403,7 @@ static void prv_write_cli_prompt()
     { // Input Checks
         prv_verify_object_integrity(g_cli_cfg_reference);
     }
-    prv_plot_lines(CLI_PROMPT_SPACER, CLI_OUTPUT_WIDTH);
+    // prv_plot_lines(CLI_PROMPT_SPACER, CLI_OUTPUT_WIDTH);
     prv_write_string(CLI_PROMPT);
 }
 
@@ -465,16 +460,6 @@ static const cli_binding_t* prv_find_cmd(const char* const in_cmd_name)
         }
     }
     return NULL;
-}
-
-static int prv_cmd_handler_clear_screen(int argc, char* argv[], void* context)
-{
-    (void)argc;
-    (void)argv;
-    (void)context;
-    // ANSI escape code to clear screen and move cursor to home
-    cli_print("\033[2J\033[H");
-    return CLI_OK_STATUS;
 }
 
 static uint8_t prv_get_args_from_rx_buffer(char* array_of_arguments[], uint8_t max_arguments)

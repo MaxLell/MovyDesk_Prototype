@@ -42,15 +42,15 @@
 // ###########################################################################
 // # Private function declarations
 // ###########################################################################
-static int prv_cmd_hello_world(int argc, char* argv[], void* context);
-static int prv_cmd_echo_string(int argc, char* argv[], void* context);
-static int prv_cmd_display_args(int argc, char* argv[], void* context);
-static int prv_cmd_system_info(int argc, char* argv[], void* context);
-static int prv_cmd_reset_system(int argc, char* argv[], void* context);
+static int prv_cmd_hello_world(int argc, char *argv[], void *context);
+static int prv_cmd_echo_string(int argc, char *argv[], void *context);
+static int prv_cmd_display_args(int argc, char *argv[], void *context);
+static int prv_cmd_system_info(int argc, char *argv[], void *context);
+static int prv_cmd_reset_system(int argc, char *argv[], void *context);
 
 static int prv_console_put_char(char in_char);
 static char prv_console_get_char(void);
-static void prv_assert_failed(const char* file, uint32_t line, const char* expr);
+static void prv_assert_failed(const char *file, uint32_t line, const char *expr);
 
 // ###########################################################################
 // # Private Variables
@@ -63,7 +63,7 @@ static cli_cfg_t g_cli_cfg = {0};
 
 /**
  * 'command name' - 'command handler' - 'pointer to context' - 'help string'
- * 
+ *
  * - The command name is the ... name of the command
  * - The 'command handler' is the function pointer to the function that is to be called, when the command was successfully entered
  * - The 'pointer to context' is the context which the user can provide to his handler function - this can also be NULL
@@ -73,7 +73,7 @@ static cli_binding_t cli_bindings[] = {
     {"hello", prv_cmd_hello_world, NULL, "Say hello"},
     {"args", prv_cmd_display_args, NULL, "Displays the given cli arguments"},
     {"echo", prv_cmd_echo_string, NULL, "Echoes the given string"},
-    {"info", prv_cmd_system_info, NULL, "Show system information"},
+    {"system_info", prv_cmd_system_info, NULL, "Show system information"},
     {"restart", prv_cmd_reset_system, NULL, "Restart the system"},
 };
 
@@ -83,20 +83,21 @@ static cli_binding_t cli_bindings[] = {
 
 void console_init(void)
 {
-        // sets up the assert with its assert_failed function
+    // sets up the assert with its assert_failed function
     custom_assert_init(prv_assert_failed);
 
     ASSERT(!is_initialized);
-    
+
     // Initialize Serial communication
     Serial.begin(115200);
-    while (!Serial) {
+    while (!Serial)
+    {
         ; // Wait for serial port to connect (needed for native USB)
     }
 
     /**
      * Hands over the statically allocated cli_cfg_t struct.
-     * The Cli's memory is to be managed by the user. Internally the cli only works with a 
+     * The Cli's memory is to be managed by the user. Internally the cli only works with a
      * reference to this allocated memory. (There is a lot of sanity checking with ASSERTs
      * on the state of this memory).
      */
@@ -121,18 +122,15 @@ void console_init(void)
 void console_run(void)
 {
     ASSERT(is_initialized);
-    
+
     // Check if there are characters available from Serial
     if (Serial.available() > 0)
     {
         // Get a character entered by the user
         char c = prv_console_get_char();
 
-        // Add the character to a queue for later processing
-        cli_receive(c);
-
-        // Process the rx buffer (all entered characters)
-        cli_process();
+        // Add the character to a queue and process it
+        cli_receive_and_process(c);
     }
 }
 
@@ -144,7 +142,7 @@ void console_run(void)
 // = Commands
 // ============================
 
-static int prv_cmd_hello_world(int argc, char* argv[], void* context)
+static int prv_cmd_hello_world(int argc, char *argv[], void *context)
 {
     (void)argc;
     (void)argv;
@@ -153,7 +151,7 @@ static int prv_cmd_hello_world(int argc, char* argv[], void* context)
     return CLI_OK_STATUS;
 }
 
-static int prv_cmd_echo_string(int argc, char* argv[], void* context)
+static int prv_cmd_echo_string(int argc, char *argv[], void *context)
 {
     if (argc != 2)
     {
@@ -166,7 +164,7 @@ static int prv_cmd_echo_string(int argc, char* argv[], void* context)
     return CLI_OK_STATUS;
 }
 
-static int prv_cmd_display_args(int argc, char* argv[], void* context)
+static int prv_cmd_display_args(int argc, char *argv[], void *context)
 {
     cli_print("Number of arguments: %d\n", argc);
     for (int i = 0; i < argc; i++)
@@ -178,31 +176,46 @@ static int prv_cmd_display_args(int argc, char* argv[], void* context)
     return CLI_OK_STATUS;
 }
 
-static int prv_cmd_system_info(int argc, char* argv[], void* context)
+static int prv_cmd_system_info(int argc, char *argv[], void *context)
 {
     (void)argc;
     (void)argv;
     (void)context;
-    
-    cli_print("=== MovyDesk System Information ===\n");
-    cli_print("Uptime: %lu ms\n", millis());
-    cli_print("Free Heap: %d bytes\n", ESP.getFreeHeap());
-    cli_print("CPU Frequency: %d MHz\n", ESP.getCpuFreqMHz());
-    cli_print("=====================================\n");
-    
+
+    // Basic system info
+    cli_print("* Uptime: %lu ms", millis());
+    cli_print("* Free Heap: %d bytes", ESP.getFreeHeap());
+    cli_print("* CPU Frequency: %d MHz", ESP.getCpuFreqMHz());
+
+    // Memory details
+    cli_print("* Heap Size: %d bytes", ESP.getHeapSize());
+    cli_print("* Min Free Heap: %d bytes", ESP.getMinFreeHeap());
+    cli_print("* Max Alloc Heap: %d bytes", ESP.getMaxAllocHeap());
+
+    // Chip information
+    cli_print("* Chip Model: %s", ESP.getChipModel());
+    cli_print("* Chip Revision: %d", ESP.getChipRevision());
+    cli_print("* CPU Cores: %d", ESP.getChipCores());
+
+    cli_print("* Temperature: %.1f°C", (temperatureRead() - 32.0) * 5.0 / 9.0);
     return CLI_OK_STATUS;
 }
 
-static int prv_cmd_reset_system(int argc, char* argv[], void* context)
+static int prv_cmd_reset_system(int argc, char *argv[], void *context)
 {
     (void)argc;
     (void)argv;
     (void)context;
-    
-    cli_print("Restarting system in 3 seconds...\n");
-    delay(3000);
+
+    cli_print("Restarting system in ");
+    for (int i = 3; i > 0; i--)
+    {
+        cli_print("%d... ", i);
+        delay(1000);
+    }
+    cli_print("\n");
     ESP.restart();
-    
+
     return CLI_OK_STATUS;
 }
 
@@ -210,14 +223,14 @@ static int prv_cmd_reset_system(int argc, char* argv[], void* context)
 // = Console I/O (Arduino Serial)
 // ============================
 
-static int prv_console_put_char(char in_char) 
-{ 
+static int prv_console_put_char(char in_char)
+{
     Serial.write(in_char);
     return 1; // Success
 }
 
-static char prv_console_get_char(void) 
-{ 
+static char prv_console_get_char(void)
+{
     if (Serial.available() > 0)
     {
         return (char)Serial.read();
@@ -225,7 +238,7 @@ static char prv_console_get_char(void)
     return 0; // No character available
 }
 
-static void prv_assert_failed(const char* file, uint32_t line, const char* expr)
+static void prv_assert_failed(const char *file, uint32_t line, const char *expr)
 {
     cli_print("ASSERT FAILED: %s:%u - %s\n", file, line, expr);
     // In embedded systems, we might want to reset instead of infinite loop
@@ -234,4 +247,3 @@ static void prv_assert_failed(const char* file, uint32_t line, const char* expr)
         delay(1000); // Keep watchdog happy if enabled
     }
 }
-

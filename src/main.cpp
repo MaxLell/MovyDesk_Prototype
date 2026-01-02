@@ -52,15 +52,12 @@ void console_task(void* parameter) {
     // Initialize console
   console_init();
   
-  Serial.println("Console task started");
-  
   // Task main loop
   while (1) {
     // Run the console processing
     console_run();
     
-    // Small delay to prevent task from hogging CPU
-    vTaskDelay(pdMS_TO_TICKS(10)); // 10ms delay
+    delay(5); // Small delay to yield CPU
   }
 }
 
