@@ -2,6 +2,7 @@
 #include "custom_assert.h"
 #include "Console.h"
 #include "DeskControl.h"
+#include "PresenceDetector.h"
 #include "MessageBroker.h"
 
 // FreeRTOS includes
@@ -13,6 +14,7 @@
 // ###########################################################################
 void console_task(void *parameter);
 void deskcontrol_task(void *parameter);
+void presencedetector_task(void *parameter);
 static void prv_assert_failed(const char *file, uint32_t line, const char *expr);
 
 // ###########################################################################
@@ -20,6 +22,7 @@ static void prv_assert_failed(const char *file, uint32_t line, const char *expr)
 // ###########################################################################
 TaskHandle_t console_task_handle = NULL;
 TaskHandle_t deskcontrol_task_handle = NULL;
+TaskHandle_t presencedetector_task_handle = NULL;
 
 // ###########################################################################
 // # Private Data
@@ -60,6 +63,17 @@ void setup()
       &deskcontrol_task_handle // Task handle
   );
   Serial.println("Desk control task created.");
+
+  // Create presence detector task
+  xTaskCreate(
+      presencedetector_task,        // Task function
+      "PresenceDetectorTask",       // Task name
+      4096,                         // Stack size (words)
+      NULL,                         // Task parameters
+      1,                            // Task priority (same as console)
+      &presencedetector_task_handle // Task handle
+  );
+  Serial.println("Presence detector task created.");
 
   // Setup LED pin
   pinMode(LED_PIN, OUTPUT);
@@ -114,6 +128,23 @@ void deskcontrol_task(void *parameter)
     deskcontrol_run();
 
     delay(10); // Small delay to yield CPU
+  }
+}
+
+void presencedetector_task(void *parameter)
+{
+  (void)parameter; // Unused parameter
+
+  // Initialize presence detector
+  presencedetector_init();
+
+  // Task main loop
+  while (1)
+  {
+    // Run the presence detector processing
+    presencedetector_run();
+
+    delay(100); // Delay for presence detection (can be adjusted based on sensor requirements)
   }
 }
 
