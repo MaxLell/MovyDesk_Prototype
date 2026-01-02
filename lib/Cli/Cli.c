@@ -41,7 +41,7 @@
 #define CLI_PROMPT "> "
 #define CLI_PROMPT_SPACER '='
 #define CLI_SECTION_SPACER '-'
-#define CLI_OUTPUT_WIDTH 50
+#define CLI_OUTPUT_WIDTH 80
 #define CLI_CANARY (0xA5A5A5A5U)
 #define CLI_OK_PROMPT "[OK] "
 #define CLI_FAIL_PROMPT "[FAIL] "

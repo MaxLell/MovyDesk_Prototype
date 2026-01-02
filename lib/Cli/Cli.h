@@ -33,18 +33,18 @@ extern "C"
 #include <stddef.h>
 #include <stdint.h>
 
-#define CLI_OK_STATUS                (0)
-#define CLI_FAIL_STATUS              (-1)
+#define CLI_OK_STATUS (0)
+#define CLI_FAIL_STATUS (-1)
 
-#define CLI_MAX_NOF_CALLBACKS        (10)
-#define CLI_MAX_CMD_NAME_LENGTH      (32)
-#define CLI_MAX_HELPER_STRING_LENGTH (64)
+#define CLI_MAX_NOF_CALLBACKS (10)
+#define CLI_MAX_CMD_NAME_LENGTH (32)
+#define CLI_MAX_HELPER_STRING_LENGTH (100)
 
-#define CLI_MAX_RX_BUFFER_SIZE       (128)
+#define CLI_MAX_RX_BUFFER_SIZE (128)
 
-#define CLI_GET_ARRAY_SIZE(arr)      (sizeof(arr) / sizeof(arr[0]))
+#define CLI_GET_ARRAY_SIZE(arr) (sizeof(arr) / sizeof(arr[0]))
 
-    typedef int (*cli_cmd_fn)(int argc, char* argv[], void* context);
+    typedef int (*cli_cmd_fn)(int argc, char *argv[], void *context);
 
     typedef int (*cli_put_char_fn)(char c);
 
@@ -52,7 +52,7 @@ extern "C"
     {
         const char name[CLI_MAX_CMD_NAME_LENGTH];
         cli_cmd_fn cmd_fn;
-        void* context;
+        void *context;
         const char help[CLI_MAX_HELPER_STRING_LENGTH];
     } cli_binding_t;
 
@@ -71,11 +71,11 @@ extern "C"
         uint32_t end_canary_word;
     } cli_cfg_t;
 
-    void cli_init(cli_cfg_t* const inout_module_cfg, cli_put_char_fn in_put_char_fn);
+    void cli_init(cli_cfg_t *const inout_module_cfg, cli_put_char_fn in_put_char_fn);
 
-    void cli_register(const cli_binding_t* const in_binding);
+    void cli_register(const cli_binding_t *const in_binding);
 
-    void cli_unregister(const char* const in_cmd_name);
+    void cli_unregister(const char *const in_cmd_name);
 
     void cli_receive(char in_char);
 
@@ -83,9 +83,9 @@ extern "C"
 
     void cli_receive_and_process(char in_char);
 
-    void cli_print(const char* const fmt, ...);
+    void cli_print(const char *const fmt, ...);
 
-    void cli_deinit(cli_cfg_t* const inout_module_cfg);
+    void cli_deinit(cli_cfg_t *const inout_module_cfg);
 
 #ifdef __cplusplus
 }

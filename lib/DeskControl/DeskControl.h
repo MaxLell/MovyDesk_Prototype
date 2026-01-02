@@ -7,7 +7,6 @@ extern "C"
 #endif /* __cplusplus */
 
     void deskcontrol_init(void);
-
     void deskcontrol_run(void);
 
 #ifdef __cplusplus

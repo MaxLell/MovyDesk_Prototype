@@ -17,6 +17,10 @@ typedef enum
     MSG_1002, // Desk Move Down 
     MSG_1003, // Desk move to P1 Preset
     MSG_1004, // Desk move to P2 Preset
+    MSG_1005, // Desk Wake/Enable
+    MSG_1006, // Desk Memory/Store Position
+    MSG_1007, // Desk move to P3 Preset
+    MSG_1008, // Desk move to P4 Preset
 
     // Messages for the Presence Detector
     MSG_2001, // Presence Detected

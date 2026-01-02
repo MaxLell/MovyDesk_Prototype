@@ -43,6 +43,10 @@
 // ###########################################################################
 // # Private function declarations
 // ###########################################################################
+static int prv_console_put_char(char in_char);
+static char prv_console_get_char(void);
+
+// System Commands
 static int prv_cmd_hello_world(int argc, char *argv[], void *context);
 static int prv_cmd_echo_string(int argc, char *argv[], void *context);
 static int prv_cmd_display_args(int argc, char *argv[], void *context);
@@ -50,12 +54,11 @@ static int prv_cmd_system_info(int argc, char *argv[], void *context);
 static int prv_cmd_reset_system(int argc, char *argv[], void *context);
 
 // Message Broker Test commands
-static void prv_msg_callback(const msg_t *const message);
+static void prv_msg_broker_callback(const msg_t *const message);
 static int prv_cmd_msgbroker_can_subscribe_and_publish(int argc, char *argv[], void *context);
 
-static int prv_console_put_char(char in_char);
-static char prv_console_get_char(void);
-static void prv_assert_failed(const char *file, uint32_t line, const char *expr);
+// Desk Control Test Commands
+static int prv_cmd_deskcontrol_move_command(int argc, char *argv[], void *context);
 
 // ###########################################################################
 // # Private Variables
@@ -84,6 +87,9 @@ static cli_binding_t cli_bindings[] = {
 
     // Message Broker Test Commands
     {"msgbroker_test", prv_cmd_msgbroker_can_subscribe_and_publish, NULL, "Test Message Broker subscribe and publish"},
+
+    // Desk Control Commands
+    {"desk_move", prv_cmd_deskcontrol_move_command, NULL, "Move desk: up, down, preset1, preset2, preset3, preset4, wake, memory"},
 
 };
 
@@ -246,7 +252,7 @@ static int prv_cmd_reset_system(int argc, char *argv[], void *context)
     return CLI_OK_STATUS;
 }
 
-static void prv_msg_callback(const msg_t *const message)
+static void prv_msg_broker_callback(const msg_t *const message)
 {
     if (message->msg_id != MSG_0001)
     {
@@ -264,7 +270,7 @@ static int prv_cmd_msgbroker_can_subscribe_and_publish(int argc, char *argv[], v
     (void)context;
 
     // Subscribe to a test message
-    messagebroker_subscribe(MSG_0001, prv_msg_callback);
+    messagebroker_subscribe(MSG_0001, prv_msg_broker_callback);
     cli_print("Subscribed to MSG_0001 \n... \nNow publishing a test message. \n...");
     // Publish a test message
     msg_t test_msg;
@@ -275,5 +281,64 @@ static int prv_cmd_msgbroker_can_subscribe_and_publish(int argc, char *argv[], v
 
     messagebroker_publish(&test_msg);
 
+    return CLI_OK_STATUS;
+}
+
+// Desk Control Command Handlers
+static int prv_cmd_deskcontrol_move_command(int argc, char *argv[], void *context)
+{
+    (void)context;
+
+    if (argc != 2)
+    {
+        cli_print("Usage: desk_move <up|down|preset1|preset2|preset3|preset4|enable|store>");
+        return CLI_FAIL_STATUS;
+    }
+
+    const char *command = argv[1];
+    msg_t desk_msg;
+    desk_msg.data_size = 0;
+    desk_msg.data_bytes = NULL;
+
+    if (strcmp(command, "up") == 0)
+    {
+        desk_msg.msg_id = MSG_1001;
+    }
+    else if (strcmp(command, "down") == 0)
+    {
+        desk_msg.msg_id = MSG_1002;
+    }
+    else if (strcmp(command, "preset1") == 0)
+    {
+        desk_msg.msg_id = MSG_1003;
+    }
+    else if (strcmp(command, "preset2") == 0)
+    {
+        desk_msg.msg_id = MSG_1004;
+    }
+    else if (strcmp(command, "enable") == 0)
+    {
+        desk_msg.msg_id = MSG_1005;
+    }
+    else if (strcmp(command, "store") == 0)
+    {
+        desk_msg.msg_id = MSG_1006;
+    }
+    else if (strcmp(command, "preset3") == 0)
+    {
+        desk_msg.msg_id = MSG_1007;
+    }
+    else if (strcmp(command, "preset4") == 0)
+    {
+        desk_msg.msg_id = MSG_1008;
+    }
+    else
+    {
+        cli_print("Unknown command: %s", command);
+        return CLI_FAIL_STATUS;
+    }
+
+    messagebroker_publish(&desk_msg);
+    cli_print("Published desk control command: %s", command);
     return CLI_OK_STATUS;
 }
