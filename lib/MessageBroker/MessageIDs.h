@@ -25,7 +25,8 @@ typedef enum
     // Messages for the Presence Detector
     MSG_2001, // Presence Detected
     MSG_2002, // No Presence Detected
-    MSG_2003, // List Close Devices
+    MSG_2003, // Start Listing close devices
+    MSG_2004, // Stop Listing close devices
 
     // Messages for the Countdown Timer
     MSG_3001, // Countdown Time Stamp
