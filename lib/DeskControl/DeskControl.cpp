@@ -14,13 +14,14 @@
 // ===== UART Pins Configuration =====
 #define UART_TX_PIN TX2
 #define UART_RX_PIN RX2
+#define SERIAL_INTERFACE Serial2
 
 // Optional display pin
-#define DISPL_HIGH_PIN 4
+#define WAKEUP_PIN 4
 
 // ===== Protocol Definitions =====
-#define FRAME_LEN 8
-#define REQ_LEN 6
+#define FRAME_LENGTH 8
+#define REQUEST_FRAME_LENGTH 6
 #define DEFAULT_REPEATS 5
 
 // ===== Command Types =====
@@ -38,17 +39,17 @@ typedef enum
 } desk_command_e;
 
 // Request frame (incoming from desk)
-const uint8_t REQ_FRAME[REQ_LEN] = {0x9B, 0x04, 0x11, 0x7C, 0xC3, 0x9D};
+const uint8_t REQ_FRAME[REQUEST_FRAME_LENGTH] = {0x9B, 0x04, 0x11, 0x7C, 0xC3, 0x9D};
 
 // Command frames (outgoing to desk)
-const uint8_t CMD_WAKE[FRAME_LEN] = {0x9B, 0x06, 0x02, 0x00, 0x00, 0x6C, 0xA1, 0x9D};
-const uint8_t CMD_UP[FRAME_LEN] = {0x9B, 0x06, 0x02, 0x01, 0x00, 0xFC, 0xA0, 0x9D};
-const uint8_t CMD_DOWN[FRAME_LEN] = {0x9B, 0x06, 0x02, 0x02, 0x00, 0x0C, 0xA0, 0x9D};
-const uint8_t CMD_M[FRAME_LEN] = {0x9B, 0x06, 0x02, 0x20, 0x00, 0xAC, 0xB8, 0x9D};
-const uint8_t CMD_PRESET1[FRAME_LEN] = {0x9B, 0x06, 0x02, 0x04, 0x00, 0xAC, 0xA3, 0x9D};
-const uint8_t CMD_PRESET2[FRAME_LEN] = {0x9B, 0x06, 0x02, 0x08, 0x00, 0xAC, 0xA6, 0x9D};
-const uint8_t CMD_PRESET3[FRAME_LEN] = {0x9B, 0x06, 0x02, 0x10, 0x00, 0xAC, 0xAC, 0x9D};
-const uint8_t CMD_PRESET4[FRAME_LEN] = {0x9B, 0x06, 0x02, 0x00, 0x01, 0xAC, 0x60, 0x9D};
+const uint8_t CMD_WAKE[FRAME_LENGTH] = {0x9B, 0x06, 0x02, 0x00, 0x00, 0x6C, 0xA1, 0x9D};
+const uint8_t CMD_UP[FRAME_LENGTH] = {0x9B, 0x06, 0x02, 0x01, 0x00, 0xFC, 0xA0, 0x9D};
+const uint8_t CMD_DOWN[FRAME_LENGTH] = {0x9B, 0x06, 0x02, 0x02, 0x00, 0x0C, 0xA0, 0x9D};
+const uint8_t CMD_M[FRAME_LENGTH] = {0x9B, 0x06, 0x02, 0x20, 0x00, 0xAC, 0xB8, 0x9D};
+const uint8_t CMD_PRESET1[FRAME_LENGTH] = {0x9B, 0x06, 0x02, 0x04, 0x00, 0xAC, 0xA3, 0x9D};
+const uint8_t CMD_PRESET2[FRAME_LENGTH] = {0x9B, 0x06, 0x02, 0x08, 0x00, 0xAC, 0xA6, 0x9D};
+const uint8_t CMD_PRESET3[FRAME_LENGTH] = {0x9B, 0x06, 0x02, 0x10, 0x00, 0xAC, 0xAC, 0x9D};
+const uint8_t CMD_PRESET4[FRAME_LENGTH] = {0x9B, 0x06, 0x02, 0x00, 0x01, 0xAC, 0x60, 0x9D};
 
 // ###########################################################################
 // # Private function declarations
@@ -57,7 +58,7 @@ static void prv_msg_broker_callback(const msg_t *const message);
 static void prv_set_frame(const uint8_t *f);
 static void prv_disarm(void);
 static void prv_arm_with(const uint8_t *f);
-static void prv_push_req_byte(uint8_t b);
+static void prv_push_req_byte(uint8_t byte);
 static bool prv_req_match(void);
 static const uint8_t *prv_get_command_frame(desk_command_e cmd);
 static void prv_execute_command(desk_command_e cmd);
@@ -67,13 +68,13 @@ static void prv_execute_command(desk_command_e cmd);
 // ###########################################################################
 
 // State variables
-static uint8_t current_frame[FRAME_LEN];
+static uint8_t current_frame[FRAME_LENGTH];
 static bool armed = false;
 static int default_repeats = DEFAULT_REPEATS;
 static int repeats_remaining = 0;
 
 // Request detection ring buffer
-static uint8_t req_window[REQ_LEN];
+static uint8_t req_window[REQUEST_FRAME_LENGTH];
 static size_t req_idx = 0;
 static bool req_filled = false;
 
@@ -84,11 +85,11 @@ static bool req_filled = false;
 void deskcontrol_init(void)
 {
     // Initialize UART for desk communication
-    pinMode(DISPL_HIGH_PIN, OUTPUT);
-    digitalWrite(DISPL_HIGH_PIN, LOW);
+    pinMode(WAKEUP_PIN, OUTPUT);
+    digitalWrite(WAKEUP_PIN, LOW);
 
     // Initialize UART: 9600 baud, 8N1
-    Serial2.begin(9600, SERIAL_8N1, UART_RX_PIN, UART_TX_PIN);
+    SERIAL_INTERFACE.begin(9600, SERIAL_8N1, UART_RX_PIN, UART_TX_PIN);
 
     // Initialize state
     armed = false;
@@ -107,23 +108,21 @@ void deskcontrol_init(void)
     messagebroker_subscribe(MSG_1006, prv_msg_broker_callback);
     messagebroker_subscribe(MSG_1007, prv_msg_broker_callback);
     messagebroker_subscribe(MSG_1008, prv_msg_broker_callback);
-
-    Serial.println("DeskControl initialized with UART protocol");
 }
 
 void deskcontrol_run(void)
 {
     // Process incoming UART data for request detection
-    while (Serial2.available())
+    while (SERIAL_INTERFACE.available())
     {
-        uint8_t b = (uint8_t)Serial2.read();
-        prv_push_req_byte(b);
+        uint8_t byte = (uint8_t)SERIAL_INTERFACE.read();
+        prv_push_req_byte(byte);
 
         if (prv_req_match())
         {
             if (armed && repeats_remaining > 0)
             {
-                Serial2.write(current_frame, FRAME_LEN);
+                SERIAL_INTERFACE.write(current_frame, FRAME_LENGTH);
                 repeats_remaining--;
 
                 // After last repeat, disarm and drop DISPL_HIGH
@@ -188,14 +187,14 @@ static void prv_msg_broker_callback(const msg_t *const message)
 
 static void prv_set_frame(const uint8_t *f)
 {
-    memcpy(current_frame, f, FRAME_LEN);
+    memcpy(current_frame, f, FRAME_LENGTH);
 }
 
 static void prv_disarm(void)
 {
     armed = false;
     repeats_remaining = 0;
-    digitalWrite(DISPL_HIGH_PIN, LOW);
+    digitalWrite(WAKEUP_PIN, LOW);
 }
 
 static void prv_arm_with(const uint8_t *f)
@@ -203,13 +202,13 @@ static void prv_arm_with(const uint8_t *f)
     prv_set_frame(f);
     armed = true;
     repeats_remaining = default_repeats;
-    digitalWrite(DISPL_HIGH_PIN, HIGH);
+    digitalWrite(WAKEUP_PIN, HIGH);
 }
 
-static void prv_push_req_byte(uint8_t b)
+static void prv_push_req_byte(uint8_t byte)
 {
-    req_window[req_idx] = b;
-    req_idx = (req_idx + 1) % REQ_LEN;
+    req_window[req_idx] = byte;
+    req_idx = (req_idx + 1) % REQUEST_FRAME_LENGTH;
     if (req_idx == 0)
         req_filled = true;
 }
@@ -221,9 +220,9 @@ static bool prv_req_match(void)
 
     // Compare in correct chronological order:
     // req_idx points to the oldest element position (next to overwrite)
-    for (size_t i = 0; i < REQ_LEN; i++)
+    for (size_t i = 0; i < REQUEST_FRAME_LENGTH; i++)
     {
-        size_t idx = (req_idx + i) % REQ_LEN;
+        size_t idx = (req_idx + i) % REQUEST_FRAME_LENGTH;
         if (req_window[idx] != REQ_FRAME[i])
             return false;
     }
@@ -261,10 +260,5 @@ static void prv_execute_command(desk_command_e cmd)
     if (frame != NULL)
     {
         prv_arm_with(frame);
-        // Serial.printf("Desk command armed: %d (repeats=%d)\n", cmd, repeats_remaining);
-    }
-    else
-    {
-        // Serial.printf("Unknown desk command: %d\n", cmd);
     }
 }
