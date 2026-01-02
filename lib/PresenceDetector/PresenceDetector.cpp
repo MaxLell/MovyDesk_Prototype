@@ -1,29 +1,24 @@
 #include "PresenceDetector.h"
 #include "custom_assert.h"
 #include "MessageBroker.h"
+#include "custom_types.h"
 #include <Arduino.h>
-#include <stdint.h>
-#include <stdbool.h>
-#include <stddef.h>
 
 // ###########################################################################
 // # Internal Configuration
 // ###########################################################################
 
-// TODO: Define sensor pins and configuration here
-// #define PRESENCE_SENSOR_PIN X
-
 // ###########################################################################
 // # Private Data
 // ###########################################################################
 
-// TODO: Add private variables for sensor state, timing, etc.
+static bool is_initialized = false;
 
 // ###########################################################################
 // # Private Function Declarations
 // ###########################################################################
 
-// TODO: Add private function declarations here
+static void prv_msg_broker_callback(const msg_t *const message);
 
 // ###########################################################################
 // # Public Function Implementations
@@ -31,29 +26,42 @@
 
 void presencedetector_init(void)
 {
-    // TODO: Initialize presence detector hardware and state
-    Serial.println("Presence Detector: Initializing...");
+    ASSERT(!is_initialized);
 
-    // TODO: Configure sensor pins, interrupts, or I2C/SPI interfaces
+    // Initialize presence detector hardware and state here
 
-    Serial.println("Presence Detector: Initialization complete");
+    // Subscribe to relevant messages if needed
+    messagebroker_subscribe(MSG_2003, prv_msg_broker_callback);
+
+    is_initialized = true;
 }
 
 void presencedetector_run(void)
 {
-    // TODO: Implement presence detection logic
-    // This function will be called periodically from the FreeRTOS task
+    ASSERT(is_initialized);
 
-    // Example tasks:
-    // - Read sensor data
-    // - Process sensor readings
-    // - Detect presence changes
-    // - Send messages via MessageBroker when presence state changes
-    // - Handle timeout logic for presence detection
+    // Run presence detection logic here
+
+    // Publish messages based on presence detection
 }
 
 // ###########################################################################
 // # Private Function Implementations
 // ###########################################################################
 
-// TODO: Add private function implementations here
+static void prv_msg_broker_callback(const msg_t *const message)
+{
+    ASSERT(message != NULL);
+
+    switch (message->msg_id)
+    {
+    case MSG_2003:
+        // Handle List Close Devices
+        // Implement logic to list close devices here
+        break;
+    default:
+        // Unknown message ID
+        ASSERT(false);
+        break;
+    }
+}

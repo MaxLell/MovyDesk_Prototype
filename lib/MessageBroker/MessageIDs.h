@@ -13,8 +13,8 @@ typedef enum
     MSG_0002, // Tickly Giraffe
 
     // Messages for Desk Control
-    MSG_1001, // Desk Move Up 
-    MSG_1002, // Desk Move Down 
+    MSG_1001, // Desk Move Up
+    MSG_1002, // Desk Move Down
     MSG_1003, // Desk move to P1 Preset
     MSG_1004, // Desk move to P2 Preset
     MSG_1005, // Desk Wake/Enable
@@ -25,6 +25,7 @@ typedef enum
     // Messages for the Presence Detector
     MSG_2001, // Presence Detected
     MSG_2002, // No Presence Detected
+    MSG_2003, // List Close Devices
 
     // Messages for the Countdown Timer
     MSG_3001, // Countdown Time Stamp

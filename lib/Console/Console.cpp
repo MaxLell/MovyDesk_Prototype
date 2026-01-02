@@ -60,6 +60,9 @@ static int prv_cmd_msgbroker_can_subscribe_and_publish(int argc, char *argv[], v
 // Desk Control Test Commands
 static int prv_cmd_deskcontrol_move_command(int argc, char *argv[], void *context);
 
+// Presence Detector Test Commands
+static int prv_cmd_presence_detector_list_close_devices(int argc, char *argv[], void *context);
+
 // ###########################################################################
 // # Private Variables
 // ###########################################################################
@@ -90,6 +93,9 @@ static cli_binding_t cli_bindings[] = {
 
     // Desk Control Commands
     {"desk_move", prv_cmd_deskcontrol_move_command, NULL, "Move desk: up, down, preset1, preset2, preset3, preset4, wake, memory"},
+
+    // Presence Detector Commands
+    {"presence_list_close_devices", prv_cmd_presence_detector_list_close_devices, NULL, "List close devices detected by Presence Detector"},
 
 };
 
@@ -340,5 +346,21 @@ static int prv_cmd_deskcontrol_move_command(int argc, char *argv[], void *contex
 
     messagebroker_publish(&desk_msg);
     cli_print("Published desk control command: %s", command);
+    return CLI_OK_STATUS;
+}
+
+// Presence Detector Commands
+static int prv_cmd_presence_detector_list_close_devices(int argc, char *argv[], void *context)
+{
+    (void)argc;
+    (void)argv;
+    (void)context;
+
+    msg_t presence_msg;
+    presence_msg.msg_id = MSG_2003;
+    presence_msg.data_size = 0;
+    presence_msg.data_bytes = NULL;
+
+    messagebroker_publish(&presence_msg);
     return CLI_OK_STATUS;
 }
