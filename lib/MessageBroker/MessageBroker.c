@@ -82,8 +82,6 @@ void messagebroker_publish(const msg_t *const message)
         ASSERT(message->msg_id < E_TOPIC_LAST_TOPIC);
     }
 
-    bool message_is_published = false;
-
     msg_id_e topic = message->msg_id;
 
     for (u8 i = 0; i < MESSAGE_BROKER_CALLBACK_ARRAY_SIZE; i++)
@@ -92,8 +90,6 @@ void messagebroker_publish(const msg_t *const message)
         if (callback != NULL)
         {
             callback(message);
-            message_is_published = true;
         }
     }
-    ASSERT(message_is_published);
 }
