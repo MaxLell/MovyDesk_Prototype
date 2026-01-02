@@ -90,9 +90,13 @@ void console_init(void)
 
     // Initialize Serial communication
     Serial.begin(115200);
+
+    u16 wait_count_ms = 0;
     while (!Serial)
     {
-        ; // Wait for serial port to connect (needed for native USB)
+        wait_count_ms += 10;
+        delay(10);
+        ASSERT(wait_count_ms < 5000); // Wait max 5 seconds for Serial to initialize
     }
 
     /**
