@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include "custom_assert.h"
 #include "Console.h"
+#include "MessageBroker.h"
 
 // FreeRTOS includes
 #include "freertos/FreeRTOS.h"
@@ -27,6 +28,8 @@ void setup()
 {
   // Initialize custom assert
   custom_assert_init(prv_assert_failed);
+
+  messagebroker_init();
 
   // Create console task
   xTaskCreate(

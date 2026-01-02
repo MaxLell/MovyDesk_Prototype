@@ -35,6 +35,7 @@
 #include "custom_types.h"
 
 #include "Cli.h"
+#include "MessageBroker.h"
 
 // Include Arduino Serial for I/O
 #include <Arduino.h>
@@ -47,6 +48,10 @@ static int prv_cmd_echo_string(int argc, char *argv[], void *context);
 static int prv_cmd_display_args(int argc, char *argv[], void *context);
 static int prv_cmd_system_info(int argc, char *argv[], void *context);
 static int prv_cmd_reset_system(int argc, char *argv[], void *context);
+
+// Message Broker Test commands
+static void prv_msg_callback(const msg_t *const message);
+static int prv_cmd_msgbroker_can_subscribe_and_publish(int argc, char *argv[], void *context);
 
 static int prv_console_put_char(char in_char);
 static char prv_console_get_char(void);
@@ -77,7 +82,8 @@ static cli_binding_t cli_bindings[] = {
     {"system_info", prv_cmd_system_info, NULL, "Show system information"},
     {"restart", prv_cmd_reset_system, NULL, "Restart the system"},
 
-    // Desk Control Commands
+    // Message Broker Test Commands
+    {"msgbroker_test", prv_cmd_msgbroker_can_subscribe_and_publish, NULL, "Test Message Broker subscribe and publish"},
 
 };
 
@@ -236,6 +242,38 @@ static int prv_cmd_reset_system(int argc, char *argv[], void *context)
     }
     cli_print("\n");
     ESP.restart();
+
+    return CLI_OK_STATUS;
+}
+
+static void prv_msg_callback(const msg_t *const message)
+{
+    if (message->msg_id != MSG_0001)
+    {
+        return; // Not the message we are interested in
+    }
+    cli_print("Message was received\n...");
+    cli_print("Received message ID: %d, Size: %d", message->msg_id, message->data_size);
+    cli_print("Message Content: %s", message->data_bytes);
+}
+
+static int prv_cmd_msgbroker_can_subscribe_and_publish(int argc, char *argv[], void *context)
+{
+    (void)argc;
+    (void)argv;
+    (void)context;
+
+    // Subscribe to a test message
+    messagebroker_subscribe(MSG_0001, prv_msg_callback);
+    cli_print("Subscribed to MSG_0001 \n... \nNow publishing a test message. \n...");
+    // Publish a test message
+    msg_t test_msg;
+    test_msg.msg_id = MSG_0001;
+    const char *test_data = "The elephant has been tickled!";
+    test_msg.data_size = strlen(test_data) + 1; // Including null terminator
+    test_msg.data_bytes = (u8 *)test_data;
+
+    messagebroker_publish(&test_msg);
 
     return CLI_OK_STATUS;
 }
