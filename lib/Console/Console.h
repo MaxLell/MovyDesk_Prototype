@@ -6,9 +6,9 @@ extern "C"
 {
 #endif /* __cplusplus */
 
-void console_init(void);
+    void console_init(void);
 
-void console_run(void);
+    void console_run(void);
 
 #ifdef __cplusplus
 }

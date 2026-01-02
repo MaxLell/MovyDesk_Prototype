@@ -1,11 +1,30 @@
 #include "MessageBroker.h"
 #include "custom_assert.h"
 
+// ---------------------------------------------------------------------------
+// Defines and Macros
+// ---------------------------------------------------------------------------
+#define MESSAGE_BROKER_CALLBACK_ARRAY_SIZE 10U
+
+// ---------------------------------------------------------------------------
+// Private Types
+// ---------------------------------------------------------------------------
+typedef struct
+{
+    msg_id_e msg_id;
+    msg_callback_t callback_array[MESSAGE_BROKER_CALLBACK_ARRAY_SIZE];
+} msg_topic_t;
+
+// ---------------------------------------------------------------------------
+// Private Variables
+// ---------------------------------------------------------------------------
 static msg_topic_t *topic_library[E_TOPIC_LAST_TOPIC] = {NULL};
 static msg_topic_t topics[E_TOPIC_LAST_TOPIC] = {0};
-
 static bool is_initialized = false;
 
+// ---------------------------------------------------------------------------
+// Public Function Implementations
+// ---------------------------------------------------------------------------
 void messagebroker_init(void)
 {
     ASSERT(!is_initialized);

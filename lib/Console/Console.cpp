@@ -70,11 +70,15 @@ static cli_cfg_t g_cli_cfg = {0};
  * - The 'help string' is the string that is printed when the help command is executed. (Have a look at the Readme.md file for an example)
  */
 static cli_binding_t cli_bindings[] = {
+    // System Commands
     {"hello", prv_cmd_hello_world, NULL, "Say hello"},
     {"args", prv_cmd_display_args, NULL, "Displays the given cli arguments"},
     {"echo", prv_cmd_echo_string, NULL, "Echoes the given string"},
     {"system_info", prv_cmd_system_info, NULL, "Show system information"},
     {"restart", prv_cmd_reset_system, NULL, "Restart the system"},
+
+    // Desk Control Commands
+
 };
 
 // ###########################################################################
@@ -114,9 +118,6 @@ void console_init(void)
         cli_register(&cli_bindings[i]);
     }
 
-    cli_print("Console initialized. Type 'help' for available commands.\n");
-    cli_print("> ");
-
     is_initialized = true;
 }
 
@@ -138,6 +139,25 @@ void console_run(void)
 // ###########################################################################
 // # Private function implementations
 // ###########################################################################
+
+// ============================
+// = Console I/O (Arduino Serial)
+// ============================
+
+static int prv_console_put_char(char in_char)
+{
+    Serial.write(in_char);
+    return 1; // Success
+}
+
+static char prv_console_get_char(void)
+{
+    if (Serial.available() > 0)
+    {
+        return (char)Serial.read();
+    }
+    return 0; // No character available
+}
 
 // ============================
 // = Commands
@@ -218,23 +238,4 @@ static int prv_cmd_reset_system(int argc, char *argv[], void *context)
     ESP.restart();
 
     return CLI_OK_STATUS;
-}
-
-// ============================
-// = Console I/O (Arduino Serial)
-// ============================
-
-static int prv_console_put_char(char in_char)
-{
-    Serial.write(in_char);
-    return 1; // Success
-}
-
-static char prv_console_get_char(void)
-{
-    if (Serial.available() > 0)
-    {
-        return (char)Serial.read();
-    }
-    return 0; // No character available
 }
