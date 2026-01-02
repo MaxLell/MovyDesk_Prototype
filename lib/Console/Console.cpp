@@ -61,8 +61,8 @@ static int prv_cmd_msgbroker_can_subscribe_and_publish(int argc, char *argv[], v
 static int prv_cmd_deskcontrol_move_command(int argc, char *argv[], void *context);
 
 // Presence Detector Test Commands
-static int prv_cmd_presence_detector_start_listing_close_devices(int argc, char *argv[], void *context);
-static int prv_cmd_presence_detector_stop_listing_close_devices(int argc, char *argv[], void *context);
+static int prv_cmd_pd_start_logging(int argc, char *argv[], void *context);
+static int prv_cmd_pd_stop_logging(int argc, char *argv[], void *context);
 
 // ###########################################################################
 // # Private Variables
@@ -96,8 +96,8 @@ static cli_binding_t cli_bindings[] = {
     {"desk_move", prv_cmd_deskcontrol_move_command, NULL, "Move desk: up, down, preset1, preset2, preset3, preset4, wake, memory"},
 
     // Presence Detector Commands
-    {"presence_start", prv_cmd_presence_detector_start_listing_close_devices, NULL, "Start continuous presence measurement (reports close devices)"},
-    {"presence_stop", prv_cmd_presence_detector_stop_listing_close_devices, NULL, "Stop continuous presence measurement"},
+    {"pd_log_enable", prv_cmd_pd_start_logging, NULL, "Start logging on the presence detector"},
+    {"pd_log_disable", prv_cmd_pd_stop_logging, NULL, "Stop logging on the presence detector"},
 
 };
 
@@ -352,7 +352,7 @@ static int prv_cmd_deskcontrol_move_command(int argc, char *argv[], void *contex
 }
 
 // Presence Detector Commands
-static int prv_cmd_presence_detector_start_listing_close_devices(int argc, char *argv[], void *context)
+static int prv_cmd_pd_start_logging(int argc, char *argv[], void *context)
 {
     (void)argc;
     (void)argv;
@@ -368,7 +368,7 @@ static int prv_cmd_presence_detector_start_listing_close_devices(int argc, char 
     return CLI_OK_STATUS;
 }
 
-static int prv_cmd_presence_detector_stop_listing_close_devices(int argc, char *argv[], void *context)
+static int prv_cmd_pd_stop_logging(int argc, char *argv[], void *context)
 {
     (void)argc;
     (void)argv;

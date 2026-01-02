@@ -51,8 +51,6 @@ void setup()
       &console_task_handle // Task handle
   );
 
-  Serial.println("Console task created.");
-
   // Create desk control task
   xTaskCreate(
       deskcontrol_task,        // Task function
@@ -62,7 +60,6 @@ void setup()
       2,                       // Task priority (higher than console)
       &deskcontrol_task_handle // Task handle
   );
-  Serial.println("Desk control task created.");
 
   // Create presence detector task
   xTaskCreate(
@@ -73,12 +70,9 @@ void setup()
       1,                            // Task priority (same as console)
       &presencedetector_task_handle // Task handle
   );
-  Serial.println("Presence detector task created.");
 
   // Setup LED pin
   pinMode(LED_PIN, OUTPUT);
-
-  Serial.println("Setup complete.");
 }
 
 void loop()
@@ -110,7 +104,7 @@ void console_task(void *parameter)
     // Run the console processing
     console_run();
 
-    delay(5); // Small delay to yield CPU
+    delay(5);
   }
 }
 
@@ -127,7 +121,7 @@ void deskcontrol_task(void *parameter)
     // Run the desk control processing
     deskcontrol_run();
 
-    delay(10); // Small delay to yield CPU
+    delay(5);
   }
 }
 
@@ -144,7 +138,7 @@ void presencedetector_task(void *parameter)
     // Run the presence detector processing
     presencedetector_run();
 
-    delay(100); // Delay for presence detection (can be adjusted based on sensor requirements)
+    delay(5);
   }
 }
 
