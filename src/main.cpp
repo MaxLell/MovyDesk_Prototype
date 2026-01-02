@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include "custom_assert.h"
 #include "Console.h"
+#include "DeskControl.h"
 #include "MessageBroker.h"
 
 // FreeRTOS includes
@@ -11,18 +12,24 @@
 // # Private function declarations
 // ###########################################################################
 void console_task(void *parameter);
+void deskcontrol_task(void *parameter);
 static void prv_assert_failed(const char *file, uint32_t line, const char *expr);
 
 // ###########################################################################
 // # Task handles
 // ###########################################################################
 TaskHandle_t console_task_handle = NULL;
+TaskHandle_t deskcontrol_task_handle = NULL;
+
+// ###########################################################################
+// # Private Data
+// ###########################################################################
+constexpr int LED_PIN = 2;
+bool assert_was_triggered = false;
 
 // ###########################################################################
 // # Setup and Loop
 // ###########################################################################
-
-constexpr int LED_PIN = 2;
 
 void setup()
 {
@@ -41,19 +48,35 @@ void setup()
       &console_task_handle // Task handle
   );
 
-  Serial.println("System initialized. Console task started.");
+  Serial.println("Console task created.");
+
+  // Create desk control task
+  xTaskCreate(
+      deskcontrol_task,        // Task function
+      "DeskControlTask",       // Task name
+      4096,                    // Stack size (words)
+      NULL,                    // Task parameters
+      2,                       // Task priority (higher than console)
+      &deskcontrol_task_handle // Task handle
+  );
+  Serial.println("Desk control task created.");
 
   // Setup LED pin
   pinMode(LED_PIN, OUTPUT);
+
+  Serial.println("Setup complete.");
 }
 
 void loop()
 {
-  // Toggle LED - for a visual heartbeat
-  static bool led_state = false;
-  led_state = !led_state;
-  digitalWrite(LED_PIN, led_state ? HIGH : LOW);
-  delay(1000);
+  if (!assert_was_triggered)
+  {
+    // Toggle LED - for a visual heartbeat
+    static bool led_state = false;
+    led_state = !led_state;
+    digitalWrite(LED_PIN, led_state ? HIGH : LOW);
+    delay(1000);
+  }
 }
 
 // ###########################################################################
@@ -77,12 +100,30 @@ void console_task(void *parameter)
   }
 }
 
+void deskcontrol_task(void *parameter)
+{
+  (void)parameter; // Unused parameter
+
+  // Initialize desk control
+  deskcontrol_init();
+
+  // Task main loop
+  while (1)
+  {
+    // Run the desk control processing
+    deskcontrol_run();
+
+    delay(10); // Small delay to yield CPU
+  }
+}
+
 // ###########################################################################
 // # Private function implementations
 // ###########################################################################
 
 static void prv_assert_failed(const char *file, uint32_t line, const char *expr)
 {
+  assert_was_triggered = true;
   Serial.printf("[ASSERT FAILED]: %s:%u - %s\n", file, line, expr);
   // In embedded systems, we might want to reset instead of infinite loop
   while (1)
