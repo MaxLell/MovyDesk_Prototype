@@ -96,7 +96,8 @@ static cli_binding_t cli_bindings[] = {
     {"desk_move", prv_cmd_deskcontrol_move_command, NULL, "Move desk: up, down, preset1, preset2, preset3, preset4, wake, memory"},
 
     // Presence Detector Commands
-    {"presence_list_close_devices", prv_cmd_presence_detector_start_listing_close_devices, NULL, "List close devices detected by Presence Detector"},
+    {"presence_start", prv_cmd_presence_detector_start_listing_close_devices, NULL, "Start continuous presence measurement (reports close devices)"},
+    {"presence_stop", prv_cmd_presence_detector_stop_listing_close_devices, NULL, "Stop continuous presence measurement"},
 
 };
 
@@ -363,5 +364,22 @@ static int prv_cmd_presence_detector_start_listing_close_devices(int argc, char 
     presence_msg.data_bytes = NULL;
 
     messagebroker_publish(&presence_msg);
+    cli_print("Started continuous presence measurement");
+    return CLI_OK_STATUS;
+}
+
+static int prv_cmd_presence_detector_stop_listing_close_devices(int argc, char *argv[], void *context)
+{
+    (void)argc;
+    (void)argv;
+    (void)context;
+
+    msg_t presence_msg;
+    presence_msg.msg_id = MSG_2004;
+    presence_msg.data_size = 0;
+    presence_msg.data_bytes = NULL;
+
+    messagebroker_publish(&presence_msg);
+    cli_print("Stopped continuous presence measurement");
     return CLI_OK_STATUS;
 }

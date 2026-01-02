@@ -12,6 +12,18 @@
 // ###########################################################################
 
 #define SCAN_TIME 5 // Scan duration in seconds
+#define FANCY_LOGGING_ENABLED 0
+
+// Distance estimation constants
+#define BLE_TX_POWER_AT_1M -59     // Measured power at 1m in dBm (typical for BLE)
+#define PATH_LOSS_EXPONENT 2.0     // Path loss exponent (2 = free space, 2-4 typical)
+#define DISTANCE_FORMULA_BASE 10.0 // Base for distance calculation formula
+
+// Distance category thresholds (in meters)
+#define DISTANCE_IMMEDIATE_MAX 1.0
+#define DISTANCE_NEAR_MAX 3.0
+#define DISTANCE_FAR_MAX 10.0
+#define DISTANCE_CLOSE_DEVICE_MAX 3.0 // Maximum distance to consider a device "close"
 
 // ###########################################################################
 // # Private Data
@@ -19,7 +31,9 @@
 
 static bool is_initialized = false;
 static NimBLEScan *pBLEScan = nullptr;
-static bool list_devices_requested = false;
+static bool is_logging_enabled = false;
+static unsigned long last_scan_time = 0;
+static const unsigned long SCAN_INTERVAL_MS = 5000; // 5 seconds between scans
 
 // Helper structure for sorting
 struct DeviceInfo
@@ -35,7 +49,11 @@ struct DeviceInfo
 static void prv_msg_broker_callback(const msg_t *const message);
 static float prv_estimate_distance(int rssi);
 static const char *prv_get_distance_category(float distance);
-static void prv_list_close_devices(void);
+static void prv_list_close_devices_one_shot(void);
+static NimBLEScanResults prv_perform_ble_scan(void);
+static std::vector<DeviceInfo> prv_create_sorted_device_list(const NimBLEScanResults &results);
+static int prv_count_and_log_close_devices(const std::vector<DeviceInfo> &devices);
+static void prv_log_single_device(const NimBLEAdvertisedDevice *device, int device_number, float distance);
 
 // ###########################################################################
 // # Public Function Implementations
@@ -56,6 +74,7 @@ void presencedetector_init(void)
 
     // Subscribe to relevant messages if needed
     messagebroker_subscribe(MSG_2003, prv_msg_broker_callback);
+    messagebroker_subscribe(MSG_2004, prv_msg_broker_callback);
 
     is_initialized = true;
 
@@ -66,15 +85,7 @@ void presencedetector_run(void)
 {
     ASSERT(is_initialized);
 
-    // Check if device listing was requested
-    if (list_devices_requested)
-    {
-        list_devices_requested = false; // Reset flag
-        prv_list_close_devices();
-    }
-
-    // Run presence detection logic here
-    // Publish messages based on presence detection
+    prv_list_close_devices_one_shot();
 }
 
 // ###########################################################################
@@ -88,16 +99,17 @@ static void prv_msg_broker_callback(const msg_t *const message)
     switch (message->msg_id)
     {
     case MSG_2003:
-        // Handle List Close Devices - just set flag, don't block
-        list_devices_requested = true;
+        // Enable logging of scan results
+        is_logging_enabled = true;
+        Serial.println("PresenceDetector: Logging enabled");
         break;
     case MSG_2004:
-        // Handle Stop Listing Close Devices - just clear flag, don't block
-        list_devices_requested = false;
+        // Disable logging of scan results
+        is_logging_enabled = false;
+        Serial.println("PresenceDetector: Logging disabled");
         break;
     default:
         // Unknown message ID
-        ASSERT(false);
         break;
     }
 }
@@ -106,18 +118,15 @@ static void prv_msg_broker_callback(const msg_t *const message)
 // This is a rough approximation and can vary significantly based on environment
 static float prv_estimate_distance(int rssi)
 {
-    // Assuming measured power at 1m is -59 dBm (typical for BLE devices)
-    int txPower = -59;
-
     if (rssi == 0)
     {
         return -1.0; // Unknown distance
     }
 
     // Path loss formula: distance = 10 ^ ((txPower - rssi) / (10 * n))
-    // where n is the path loss exponent (typically 2-4, we use 2 for free space)
-    float ratio = (txPower - rssi) / (10.0 * 2.0);
-    return pow(10, ratio);
+    // where n is the path loss exponent
+    float ratio = (BLE_TX_POWER_AT_1M - rssi) / (DISTANCE_FORMULA_BASE * PATH_LOSS_EXPONENT);
+    return pow(DISTANCE_FORMULA_BASE, ratio);
 }
 
 // Get distance category as string
@@ -125,28 +134,28 @@ static const char *prv_get_distance_category(float distance)
 {
     if (distance < 0)
         return "Unknown";
-    if (distance < 1.0)
+    if (distance < DISTANCE_IMMEDIATE_MAX)
         return "Immediate";
-    if (distance < 3.0)
+    if (distance < DISTANCE_NEAR_MAX)
         return "Near";
-    if (distance < 10.0)
+    if (distance < DISTANCE_FAR_MAX)
         return "Far";
     return "Very Far";
 }
 
-// List all close devices (blocking operation - called from presencedetector_run)
-static void prv_list_close_devices(void)
+// Perform BLE scan and return results
+static NimBLEScanResults prv_perform_ble_scan(void)
 {
-    Serial.printf("\nScanning for %d seconds...\n", SCAN_TIME);
+    return pBLEScan->getResults(SCAN_TIME * 1000, true);
+}
 
-    // Start scan and get results
-    NimBLEScanResults results = pBLEScan->getResults(SCAN_TIME * 1000, true);
-
+// Create sorted device list from scan results
+static std::vector<DeviceInfo> prv_create_sorted_device_list(const NimBLEScanResults &results)
+{
+    std::vector<DeviceInfo> devices;
     int device_count = results.getCount();
 
-    // Create vector for sorting
-    std::vector<DeviceInfo> devices;
-
+    // Convert scan results to vector
     for (int i = 0; i < device_count; i++)
     {
         const NimBLEAdvertisedDevice *device = results.getDevice(i);
@@ -160,9 +169,44 @@ static void prv_list_close_devices(void)
     std::sort(devices.begin(), devices.end(), [](const DeviceInfo &a, const DeviceInfo &b)
               { return a.rssi > b.rssi; });
 
-    Serial.println("Close devices found:\n");
+    return devices;
+}
 
-    int displayedCount = 0;
+// Log detailed information about a single device
+static void prv_log_single_device(const NimBLEAdvertisedDevice *device, int device_number, float distance)
+{
+    int rssi = device->getRSSI();
+
+    Serial.printf("Device %d:\n", device_number);
+    Serial.printf("  Address:  %s\n", device->getAddress().toString().c_str());
+    Serial.printf("  RSSI:     %d dBm\n", rssi);
+    Serial.printf("  Distance: %.2f m (%s)\n", distance, prv_get_distance_category(distance));
+
+    // If the device has a name, display it
+    if (device->haveName())
+    {
+        Serial.printf("  Name:     %s\n", device->getName().c_str());
+    }
+
+    // Show manufacturer data if available
+    if (device->haveManufacturerData())
+    {
+        std::string manufacturerData = device->getManufacturerData();
+        Serial.printf("  Manufacturer data: ");
+        for (size_t j = 0; j < manufacturerData.length(); j++)
+        {
+            Serial.printf("%02X ", (uint8_t)manufacturerData[j]);
+        }
+        Serial.println();
+    }
+
+    Serial.println("---");
+}
+
+// Count and log close devices
+static int prv_count_and_log_close_devices(const std::vector<DeviceInfo> &devices)
+{
+    int close_device_count = 0;
 
     for (size_t i = 0; i < devices.size(); i++)
     {
@@ -170,38 +214,44 @@ static void prv_list_close_devices(void)
         int rssi = device->getRSSI();
         float distance = prv_estimate_distance(rssi);
 
-        // Only display devices that are Immediate or Near (< 3.0m)
-        if (distance >= 3.0 && distance >= 0)
+        // Only count devices that are close
+        if (distance >= DISTANCE_CLOSE_DEVICE_MAX && distance >= 0)
         {
             continue;
         }
 
-        displayedCount++;
-        Serial.printf("Device %d:\n", displayedCount);
-        Serial.printf("  Address:  %s\n", device->getAddress().toString().c_str());
-        Serial.printf("  RSSI:     %d dBm\n", rssi);
-        Serial.printf("  Distance: %.2f m (%s)\n", distance, prv_get_distance_category(distance));
+        close_device_count++;
 
-        // If the device has a name, display it
-        if (device->haveName())
+        // Log device details if fancy logging is enabled
+        if (is_logging_enabled && FANCY_LOGGING_ENABLED)
         {
-            Serial.printf("  Name:     %s\n", device->getName().c_str());
+            prv_log_single_device(device, close_device_count, distance);
         }
-
-        // Show manufacturer data if available
-        if (device->haveManufacturerData())
-        {
-            std::string manufacturerData = device->getManufacturerData();
-            Serial.printf("  Manufacturer data: ");
-            for (size_t j = 0; j < manufacturerData.length(); j++)
-            {
-                Serial.printf("%02X ", (uint8_t)manufacturerData[j]);
-            }
-            Serial.println();
-        }
-
-        Serial.println("---");
     }
 
-    Serial.printf("Scan complete. %d devices found (%d nearby).\n", device_count, displayedCount);
+    return close_device_count;
+}
+
+// List all close devices (blocking operation - called from presencedetector_run)
+static void prv_list_close_devices_one_shot(void)
+{
+    // Perform BLE scan
+    NimBLEScanResults results = prv_perform_ble_scan();
+    int total_nof_devices = results.getCount();
+
+    // Create and sort device list
+    std::vector<DeviceInfo> devices = prv_create_sorted_device_list(results);
+
+    // Count and log close devices
+    int close_device_count = prv_count_and_log_close_devices(devices);
+
+    // Log summary
+    if (is_logging_enabled && FANCY_LOGGING_ENABLED)
+    {
+        Serial.printf("Scan complete. %d devices found (%d nearby).\n", total_nof_devices, close_device_count);
+    }
+    else if (is_logging_enabled && !FANCY_LOGGING_ENABLED)
+    {
+        Serial.printf("%d,", close_device_count);
+    }
 }
