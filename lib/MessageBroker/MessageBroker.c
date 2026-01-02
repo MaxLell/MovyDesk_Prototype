@@ -13,12 +13,12 @@ void messagebroker_init(void)
     for (u16 msg_id = (E_TOPIC_FIRST_TOPIC + 1); msg_id < E_TOPIC_LAST_TOPIC; msg_id++)
     {
         topics[msg_id].msg_id = msg_id;
-        
+
         for (u16 i = 0; i < MESSAGE_BROKER_CALLBACK_ARRAY_SIZE; i++)
         {
             topics[msg_id].callback_array[i] = NULL;
         }
-        
+
         topic_library[msg_id] = &topics[msg_id];
     }
     is_initialized = true;
@@ -62,15 +62,19 @@ void messagebroker_publish(const msg_t *const message)
         ASSERT(message->msg_id > E_TOPIC_FIRST_TOPIC);
         ASSERT(message->msg_id < E_TOPIC_LAST_TOPIC);
     }
-    
+
+    bool message_is_published = false;
+
     msg_id_e topic = message->msg_id;
-    
+
     for (u8 i = 0; i < MESSAGE_BROKER_CALLBACK_ARRAY_SIZE; i++)
     {
         msg_callback_t callback = topic_library[topic]->callback_array[i];
         if (callback != NULL)
         {
             callback(message);
+            message_is_published = true;
         }
     }
+    ASSERT(message_is_published);
 }
