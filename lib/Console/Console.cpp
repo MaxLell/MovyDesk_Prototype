@@ -83,9 +83,6 @@ static cli_binding_t cli_bindings[] = {
 
 void console_init(void)
 {
-    // sets up the assert with its assert_failed function
-    custom_assert_init(prv_assert_failed);
-
     ASSERT(!is_initialized);
 
     // Initialize Serial communication
@@ -240,14 +237,4 @@ static char prv_console_get_char(void)
         return (char)Serial.read();
     }
     return 0; // No character available
-}
-
-static void prv_assert_failed(const char *file, uint32_t line, const char *expr)
-{
-    cli_print("ASSERT FAILED: %s:%u - %s\n", file, line, expr);
-    // In embedded systems, we might want to reset instead of infinite loop
-    while (1)
-    {
-        delay(1000); // Keep watchdog happy if enabled
-    }
 }
