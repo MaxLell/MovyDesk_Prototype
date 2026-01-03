@@ -12,6 +12,11 @@ typedef enum
     MSG_0001, // Chaos Elephant
     MSG_0002, // Tickly Giraffe
 
+    // Logging Control Messages
+    MSG_0003, // Enable/Disable Logging for the Application Control Module
+    MSG_0004, // Enable/Disable Logging for the Desk Control Module
+    MSG_0005, // Enable/Disable Logging for the Presence Detector Module
+
     // Messages for Desk Control
     MSG_1001, // Desk Move Up
     MSG_1002, // Desk Move Down
@@ -21,12 +26,11 @@ typedef enum
     MSG_1006, // Desk Memory/Store Position
     MSG_1007, // Desk move to P3 Preset
     MSG_1008, // Desk move to P4 Preset
+    MSG_1009, // Toggle Desk Position
 
     // Messages for the Presence Detector
     MSG_2001, // Presence Detected
     MSG_2002, // No Presence Detected
-    MSG_2003, // Enable Presence Detector Logging
-    MSG_2004, // Disable Presence Detector Logging
 
     // Messages for the Countdown Timer
     MSG_3001, // Start Countdown with Time Stamp

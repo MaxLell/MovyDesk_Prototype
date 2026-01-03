@@ -60,6 +60,9 @@ static int prv_cmd_msgbroker_can_subscribe_and_publish(int argc, char* argv[], v
 // Desk Control Test Commands
 static int prv_cmd_deskcontrol_move_command(int argc, char* argv[], void* context);
 
+// Generic Logging Commands
+static int prv_cmd_log_control(int argc, char* argv[], void* context);
+
 // Presence Detector Test Commands
 static int prv_cmd_pd_start_logging(int argc, char* argv[], void* context);
 static int prv_cmd_pd_stop_logging(int argc, char* argv[], void* context);
@@ -94,6 +97,9 @@ static cli_binding_t cli_bindings[] = {
 
     // Message Broker Test Commands
     {"msgbroker_test", prv_cmd_msgbroker_can_subscribe_and_publish, NULL, "Test Message Broker subscribe and publish"},
+
+    // Logging Commands
+    {"log", prv_cmd_log_control, NULL, "Control module logging: log <on|off> <appctrl|deskctrl|presence>"},
 
     // Desk Control Commands
     {"desk_move", prv_cmd_deskcontrol_move_command, NULL,
@@ -368,6 +374,76 @@ static int prv_cmd_deskcontrol_move_command(int argc, char* argv[], void* contex
     return CLI_OK_STATUS;
 }
 
+// Generic Logging Commands
+static int prv_cmd_log_control(int argc, char* argv[], void* context)
+{
+    (void)context;
+
+    if (argc < 3)
+    {
+        cli_print("Usage: log <on|off> <appctrl|deskctrl|presence>");
+        return CLI_FAIL_STATUS;
+    }
+
+    // Parse enable/disable
+    bool enable_logging;
+    if (strcmp(argv[1], "on") == 0)
+    {
+        enable_logging = true;
+    }
+    else if (strcmp(argv[1], "off") == 0)
+    {
+        enable_logging = false;
+    }
+    else
+    {
+        cli_print("Error: First argument must be 'on' or 'off'");
+        return CLI_FAIL_STATUS;
+    }
+
+    // Parse module name and get corresponding message ID
+    msg_id_e msg_id;
+    const char* module_name;
+
+    if (strcmp(argv[2], "appctrl") == 0)
+    {
+        msg_id = MSG_0003;
+        module_name = "ApplicationControl";
+    }
+    else if (strcmp(argv[2], "deskctrl") == 0)
+    {
+        msg_id = MSG_0004;
+        module_name = "DeskControl";
+    }
+    else if (strcmp(argv[2], "presence") == 0)
+    {
+        msg_id = MSG_0005;
+        module_name = "PresenceDetector";
+    }
+    else
+    {
+        cli_print("Error: Unknown module. Use 'appctrl', 'deskctrl', or 'presence'");
+        return CLI_FAIL_STATUS;
+    }
+
+    // Publish logging control message
+    msg_t log_msg;
+    log_msg.msg_id = msg_id;
+    log_msg.data_size = sizeof(bool);
+    log_msg.data_bytes = (u8*)&enable_logging;
+
+    messagebroker_publish(&log_msg);
+
+    // Print confirmation
+    cli_print("Logging ");
+    cli_print(enable_logging ? "enabled" : "disabled");
+    cli_print(" for ");
+    cli_print(module_name);
+    cli_print("\n");
+
+    return CLI_OK_STATUS;
+}
+
 // Presence Detector Commands
 static int prv_cmd_pd_start_logging(int argc, char* argv[], void* context)
 {
@@ -375,10 +451,11 @@ static int prv_cmd_pd_start_logging(int argc, char* argv[], void* context)
     (void)argv;
     (void)context;
 
+    bool enable_logging = true;
     msg_t presence_msg;
-    presence_msg.msg_id = MSG_2003;
-    presence_msg.data_size = 0;
-    presence_msg.data_bytes = NULL;
+    presence_msg.msg_id = MSG_0005;
+    presence_msg.data_size = sizeof(bool);
+    presence_msg.data_bytes = (u8*)&enable_logging;
 
     messagebroker_publish(&presence_msg);
     cli_print("Started continuous presence measurement");
@@ -391,10 +468,11 @@ static int prv_cmd_pd_stop_logging(int argc, char* argv[], void* context)
     (void)argv;
     (void)context;
 
+    bool enable_logging = false;
     msg_t presence_msg;
-    presence_msg.msg_id = MSG_2004;
-    presence_msg.data_size = 0;
-    presence_msg.data_bytes = NULL;
+    presence_msg.msg_id = MSG_0005;
+    presence_msg.data_size = sizeof(bool);
+    presence_msg.data_bytes = (u8*)&enable_logging;
 
     messagebroker_publish(&presence_msg);
     cli_print("Stopped continuous presence measurement");

@@ -67,6 +67,9 @@ static void prv_execute_command(desk_command_e cmd);
 // # Private variables
 // ###########################################################################
 
+// Logging control
+static bool prv_logging_enabled = false;
+
 // State variables
 static uint8_t current_frame[FRAME_LENGTH];
 static bool armed = false;
@@ -100,6 +103,7 @@ void deskcontrol_init(void)
     memset(current_frame, 0, sizeof(current_frame));
 
     // Subscribe to relevant messages
+    messagebroker_subscribe(MSG_0004, prv_msg_broker_callback); // Logging control
     messagebroker_subscribe(MSG_1001, prv_msg_broker_callback);
     messagebroker_subscribe(MSG_1002, prv_msg_broker_callback);
     messagebroker_subscribe(MSG_1003, prv_msg_broker_callback);
@@ -108,6 +112,7 @@ void deskcontrol_init(void)
     messagebroker_subscribe(MSG_1006, prv_msg_broker_callback);
     messagebroker_subscribe(MSG_1007, prv_msg_broker_callback);
     messagebroker_subscribe(MSG_1008, prv_msg_broker_callback);
+    messagebroker_subscribe(MSG_1009, prv_msg_broker_callback);
 }
 
 void deskcontrol_run(void)
@@ -122,12 +127,21 @@ void deskcontrol_run(void)
         {
             if (armed && repeats_remaining > 0)
             {
+                if (prv_logging_enabled)
+                {
+                    Serial.print("[DeskCtrl] Sending frame, repeats left: ");
+                    Serial.println(repeats_remaining - 1);
+                }
                 SERIAL_INTERFACE.write(current_frame, FRAME_LENGTH);
                 repeats_remaining--;
 
                 // After last repeat, disarm and drop DISPL_HIGH
                 if (repeats_remaining == 0)
                 {
+                    if (prv_logging_enabled)
+                    {
+                        Serial.println("[DeskCtrl] Command sequence completed, disarming");
+                    }
                     prv_disarm();
                 }
             }
@@ -146,37 +160,76 @@ static void prv_msg_broker_callback(const msg_t* const message)
 
     switch (message->msg_id)
     {
+        case MSG_0004: // Set Logging State
+            if (message->data_size == sizeof(bool))
+            {
+                prv_logging_enabled = *(bool*)(message->data_bytes);
+                Serial.print("[DeskCtrl] Logging ");
+                Serial.println(prv_logging_enabled ? "enabled" : "disabled");
+            }
+            break;
         case MSG_1001:
-            // Handle Desk Move Up
+            if (prv_logging_enabled)
+            {
+                Serial.println("[DeskCtrl] Command: Move Up");
+            }
             prv_execute_command(DESK_CMD_UP);
             break;
         case MSG_1002:
-            // Handle Desk Move Down
+            if (prv_logging_enabled)
+            {
+                Serial.println("[DeskCtrl] Command: Move Down");
+            }
             prv_execute_command(DESK_CMD_DOWN);
             break;
         case MSG_1003:
-            // Handle Desk move to P1 Preset
+            if (prv_logging_enabled)
+            {
+                Serial.println("[DeskCtrl] Command: Preset 1");
+            }
             prv_execute_command(DESK_CMD_PRESET1);
             break;
         case MSG_1004:
-            // Handle Desk move to P2 Preset
+            if (prv_logging_enabled)
+            {
+                Serial.println("[DeskCtrl] Command: Preset 2");
+            }
             prv_execute_command(DESK_CMD_PRESET2);
             break;
         case MSG_1005:
-            // Handle Desk Wake/Enable
+            if (prv_logging_enabled)
+            {
+                Serial.println("[DeskCtrl] Command: Wake/Enable");
+            }
             prv_execute_command(DESK_CMD_WAKE);
             break;
         case MSG_1006:
-            // Handle Desk Memory/Store Position
+            if (prv_logging_enabled)
+            {
+                Serial.println("[DeskCtrl] Command: Memory/Store");
+            }
             prv_execute_command(DESK_CMD_MEMORY);
             break;
         case MSG_1007:
-            // Handle Desk move to P3 Preset
+            if (prv_logging_enabled)
+            {
+                Serial.println("[DeskCtrl] Command: Preset 3");
+            }
             prv_execute_command(DESK_CMD_PRESET3);
             break;
         case MSG_1008:
-            // Handle Desk move to P4 Preset
+            if (prv_logging_enabled)
+            {
+                Serial.println("[DeskCtrl] Command: Preset 4");
+            }
             prv_execute_command(DESK_CMD_PRESET4);
+            break;
+        case MSG_1009:
+            if (prv_logging_enabled)
+            {
+                Serial.println("[DeskCtrl] Command: Toggle Position");
+            }
+            // Toggle logic will be added later if needed
             break;
         default:
             // Unknown message ID

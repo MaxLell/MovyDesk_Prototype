@@ -72,8 +72,7 @@ void presencedetector_init(void)
     pBLEScan->setWindow(99);       // Scan window in ms
 
     // Subscribe to logging control messages
-    messagebroker_subscribe(MSG_2003, prv_msg_broker_callback);
-    messagebroker_subscribe(MSG_2004, prv_msg_broker_callback);
+    messagebroker_subscribe(MSG_0005, prv_msg_broker_callback);
 
     // Start continuous scanning
     pBLEScan->start(0, false, false); // 0 = continuous scan, no callback, don't restart
@@ -104,15 +103,13 @@ static void prv_msg_broker_callback(const msg_t* const message)
 
     switch (message->msg_id)
     {
-        case MSG_2003:
-            // Enable logging
-            is_logging_enabled = true;
-            Serial.println("PresenceDetector: Logging enabled");
-            break;
-        case MSG_2004:
-            // Disable logging
-            is_logging_enabled = false;
-            Serial.println("PresenceDetector: Logging disabled");
+        case MSG_0005: // Set Logging State
+            if (message->data_size == sizeof(bool))
+            {
+                is_logging_enabled = *(bool*)(message->data_bytes);
+                Serial.print("[PresenceDetect] Logging ");
+                Serial.println(is_logging_enabled ? "enabled" : "disabled");
+            }
             break;
         default:
             // Unknown message ID
@@ -184,8 +181,10 @@ static void prv_check_and_publish_presence_state(int close_device_count)
 
     if (is_logging_enabled)
     {
-        Serial.printf("#close devices %d, Person present = %s\n", close_device_count,
-                      is_person_currently_present ? "YES" : "nope");
+        Serial.print("[PresenceDetect] Close devices: ");
+        Serial.print(close_device_count);
+        Serial.print(", Person present: ");
+        Serial.println(is_person_currently_present ? "YES" : "NO");
     }
 
     // Only publish if state changed
@@ -202,7 +201,9 @@ static void prv_check_and_publish_presence_state(int close_device_count)
             presence_msg.msg_id = MSG_2001; // Presence Detected
             if (is_logging_enabled)
             {
-                Serial.printf("Person DETECTED (%d devices)\n", close_device_count);
+                Serial.print("[PresenceDetect] Person DETECTED (");
+                Serial.print(close_device_count);
+                Serial.println(" devices)");
             }
         }
         else
@@ -210,7 +211,9 @@ static void prv_check_and_publish_presence_state(int close_device_count)
             presence_msg.msg_id = MSG_2002; // No Presence Detected
             if (is_logging_enabled)
             {
-                Serial.printf("Person LOST (%d devices)\n", close_device_count);
+                Serial.print("[PresenceDetect] Person LOST (");
+                Serial.print(close_device_count);
+                Serial.println(" devices)");
             }
         }
 
