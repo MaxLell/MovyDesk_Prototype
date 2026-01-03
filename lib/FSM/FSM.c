@@ -1,7 +1,7 @@
 #include "FSM.h"
 #include "custom_assert.h"
 
-void fsm_check_config(const fsm_config_t *const config)
+void fsm_check_config(const fsm_config_t* const config)
 {
     // Check the config inputs
     // Null Pointer Checks for all entries
@@ -16,7 +16,7 @@ void fsm_check_config(const fsm_config_t *const config)
     ASSERT(config->current_event < config->number_of_events);
 }
 
-void fsm_set_trigger_event(fsm_config_t *const config, u16 event)
+void fsm_set_event(fsm_config_t* const config, u16 event)
 {
     { // Input Checks
         fsm_check_config(config);
@@ -25,14 +25,14 @@ void fsm_set_trigger_event(fsm_config_t *const config, u16 event)
     config->current_event = event;
 }
 
-void fsm_get_next_state(fsm_config_t *const config)
+void fsm_get_next_state(fsm_config_t* const config)
 {
     { // Input Checks
         fsm_check_config(config);
     }
 
     // Approach taken from https://stackoverflow.com/a/54103595
-    const u16 *matrix = config->transition_matrix;
+    const u16* matrix = config->transition_matrix;
     u16 num_events = config->number_of_events;
     u16 event = config->current_event;
     u16 state = config->current_state;
@@ -42,7 +42,7 @@ void fsm_get_next_state(fsm_config_t *const config)
     ASSERT(config->current_state < config->number_of_states);
 }
 
-void fsm_run_state_action(const fsm_config_t *const config)
+void fsm_run_state_action(const fsm_config_t* const config)
 {
     { // Input Checks
         fsm_check_config(config);
@@ -53,7 +53,7 @@ void fsm_run_state_action(const fsm_config_t *const config)
     run_state_action();
 }
 
-void fsm_execute(fsm_config_t *const config)
+void fsm_execute(fsm_config_t* const config)
 {
     { // Input Checks
         fsm_check_config(config);
