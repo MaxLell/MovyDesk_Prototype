@@ -69,8 +69,10 @@ static void prv_msg_broker_callback(const msg_t* const message)
             ASSERT(countdown_time_ms > 0);
 
             // Change timer period and start the timer
+            BaseType_t status = xTimerChangePeriod(countdown_timer_handle, pdMS_TO_TICKS(countdown_time_ms), 0);
+            ASSERT(status == pdPASS);
 
-            BaseType_t status = xTimerStart(countdown_timer_handle, pdMS_TO_TICKS(countdown_time_ms));
+            status = xTimerStart(countdown_timer_handle, 0);
             ASSERT(status == pdPASS);
         }
 

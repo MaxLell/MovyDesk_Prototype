@@ -64,6 +64,9 @@ static int prv_cmd_deskcontrol_move_command(int argc, char* argv[], void* contex
 static int prv_cmd_pd_start_logging(int argc, char* argv[], void* context);
 static int prv_cmd_pd_stop_logging(int argc, char* argv[], void* context);
 
+// Timer Manager Test Commands
+static int prv_cmd_timer_start_countdown(int argc, char* argv[], void* context);
+
 // ###########################################################################
 // # Private Variables
 // ###########################################################################
@@ -99,6 +102,9 @@ static cli_binding_t cli_bindings[] = {
     // Presence Detector Commands
     {"pd_log_enable", prv_cmd_pd_start_logging, NULL, "Start logging on the presence detector"},
     {"pd_log_disable", prv_cmd_pd_stop_logging, NULL, "Stop logging on the presence detector"},
+
+    // Timer Manager Commands
+    {"timer_start", prv_cmd_timer_start_countdown, NULL, "Start countdown timer (5 seconds)"},
 
 };
 
@@ -138,6 +144,9 @@ void console_init(void)
     {
         cli_register(&cli_bindings[i]);
     }
+
+    // Subscribe to timer done message
+    messagebroker_subscribe(MSG_3003, prv_msg_broker_callback);
 
     is_initialized = true;
 }
@@ -263,13 +272,20 @@ static int prv_cmd_reset_system(int argc, char* argv[], void* context)
 
 static void prv_msg_broker_callback(const msg_t* const message)
 {
-    if (message->msg_id != MSG_0001)
+    switch (message->msg_id)
     {
-        return; // Not the message we are interested in
+        case MSG_0001:
+            cli_print("Message was received\n...");
+            cli_print("Received message ID: %d, Size: %d", message->msg_id, message->data_size);
+            cli_print("Message Content: %s", message->data_bytes);
+            break;
+
+        case MSG_3003: // Timer finished
+            cli_print("*** Countdown timer completed successfully! ***");
+            break;
+
+        default: break;
     }
-    cli_print("Message was received\n...");
-    cli_print("Received message ID: %d, Size: %d", message->msg_id, message->data_size);
-    cli_print("Message Content: %s", message->data_bytes);
 }
 
 static int prv_cmd_msgbroker_can_subscribe_and_publish(int argc, char* argv[], void* context)
@@ -382,5 +398,25 @@ static int prv_cmd_pd_stop_logging(int argc, char* argv[], void* context)
 
     messagebroker_publish(&presence_msg);
     cli_print("Stopped continuous presence measurement");
+    return CLI_OK_STATUS;
+}
+
+// Timer Manager Commands
+static int prv_cmd_timer_start_countdown(int argc, char* argv[], void* context)
+{
+    (void)argc;
+    (void)argv;
+    (void)context;
+
+    // Start a 5 second countdown timer
+    uint32_t countdown_time_ms = 5000; // 5 seconds
+
+    msg_t timer_msg;
+    timer_msg.msg_id = MSG_3001; // Start countdown
+    timer_msg.data_size = sizeof(uint32_t);
+    timer_msg.data_bytes = (u8*)&countdown_time_ms;
+
+    messagebroker_publish(&timer_msg);
+    cli_print("Starting 5 second countdown timer...");
     return CLI_OK_STATUS;
 }

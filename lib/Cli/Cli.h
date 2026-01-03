@@ -36,7 +36,7 @@ extern "C"
 #define CLI_OK_STATUS                (0)
 #define CLI_FAIL_STATUS              (-1)
 
-#define CLI_MAX_NOF_CALLBACKS        (10)
+#define CLI_MAX_NOF_CALLBACKS        (30)
 #define CLI_MAX_CMD_NAME_LENGTH      (32)
 #define CLI_MAX_HELPER_STRING_LENGTH (100)
 
