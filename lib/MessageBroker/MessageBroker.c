@@ -71,6 +71,7 @@ void messagebroker_subscribe(msg_id_e topic, msg_callback_t in_function_ptr)
     }
 
     ASSERT(is_subscribed);
+    ASSERT(false == is_already_subscribed);
 }
 
 void messagebroker_publish(const msg_t* const message)
@@ -83,13 +84,16 @@ void messagebroker_publish(const msg_t* const message)
     }
 
     msg_id_e topic = message->msg_id;
+    bool is_anyone_listening = false;
 
     for (u8 i = 0; i < MESSAGE_BROKER_CALLBACK_ARRAY_SIZE; i++)
     {
         msg_callback_t callback = topic_library[topic]->callback_array[i];
         if (callback != NULL)
         {
+            is_anyone_listening = true;
             callback(message);
         }
     }
+    ASSERT(is_anyone_listening = true);
 }
