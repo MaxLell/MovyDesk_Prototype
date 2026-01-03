@@ -1,11 +1,11 @@
 #include "ApplicationControl.h"
-#include "custom_assert.h"
-#include "MessageBroker.h"
 #include <Arduino.h>
-#include <string.h>
-#include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
+#include <string.h>
+#include "MessageBroker.h"
+#include "custom_assert.h"
 
 // ###########################################################################
 // # Internal Configuration
@@ -16,7 +16,7 @@
 // ###########################################################################
 // # Private function declarations
 // ###########################################################################
-static void prv_msg_broker_callback(const msg_t *const message);
+static void prv_msg_broker_callback(const msg_t* const message);
 
 // ###########################################################################
 // # Private variables
@@ -46,16 +46,16 @@ void applicationcontrol_run(void)
 // # Private function implementations
 // ###########################################################################
 
-static void prv_msg_broker_callback(const msg_t *const message)
+static void prv_msg_broker_callback(const msg_t* const message)
 {
     ASSERT(message != NULL);
 
     switch (message->msg_id)
     {
-    // TODO: Add message handling cases here
-    default:
-        // Unknown message ID
-        ASSERT(false);
-        break;
+        // TODO: Add message handling cases here
+        default:
+            // Unknown message ID
+            ASSERT(false);
+            break;
     }
 }

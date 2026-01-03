@@ -1,35 +1,35 @@
 #include "PresenceDetector.h"
-#include "custom_assert.h"
-#include "MessageBroker.h"
-#include "custom_types.h"
 #include <Arduino.h>
 #include <NimBLEDevice.h>
 #include <vector>
+#include "MessageBroker.h"
+#include "custom_assert.h"
+#include "custom_types.h"
 
 // ###########################################################################
 // # Internal Configuration
 // ###########################################################################
 
-#define SCAN_TIME 5 // Scan duration in seconds
+#define SCAN_TIME                 5 // Scan duration in seconds
 
 // Distance estimation constants
-#define BLE_TX_POWER_AT_1M -59     // Measured power at 1m in dBm (typical for BLE)
-#define PATH_LOSS_EXPONENT 2.0     // Path loss exponent (2 = free space, 2-4 typical)
-#define DISTANCE_FORMULA_BASE 10.0 // Base for distance calculation formula
+#define BLE_TX_POWER_AT_1M        -59  // Measured power at 1m in dBm (typical for BLE)
+#define PATH_LOSS_EXPONENT        2.0  // Path loss exponent (2 = free space, 2-4 typical)
+#define DISTANCE_FORMULA_BASE     10.0 // Base for distance calculation formula
 
 // Distance category thresholds (in meters)
 #define DISTANCE_CLOSE_DEVICE_MAX 4.0 // Maximum distance to consider a device "close" (4 meters)
 
 // Presence detection configuration
-#define PRESENCE_THRESHOLD 3  // Minimum number of close devices to detect presence
-#define SCAN_INTERVAL_MS 5000 // 5 seconds between scans
+#define PRESENCE_THRESHOLD        3    // Minimum number of close devices to detect presence
+#define SCAN_INTERVAL_MS          5000 // 5 seconds between scans
 
 // ###########################################################################
 // # Private Data
 // ###########################################################################
 
 static bool is_initialized = false;
-static NimBLEScan *pBLEScan = nullptr;
+static NimBLEScan* pBLEScan = nullptr;
 static bool is_logging_enabled = false;
 static unsigned long last_scan_time = 0;
 
@@ -39,7 +39,7 @@ static bool presence_detected = false;
 // Helper structure for device info
 struct DeviceInfo
 {
-    const NimBLEAdvertisedDevice *device;
+    const NimBLEAdvertisedDevice* device;
     int rssi;
 };
 
@@ -47,10 +47,10 @@ struct DeviceInfo
 // # Private Function Declarations
 // ###########################################################################
 
-static void prv_msg_broker_callback(const msg_t *const message);
+static void prv_msg_broker_callback(const msg_t* const message);
 static float prv_estimate_distance(int rssi);
-static std::vector<DeviceInfo> prv_create_device_list(const NimBLEScanResults &results);
-static int prv_count_close_devices(const std::vector<DeviceInfo> &devices);
+static std::vector<DeviceInfo> prv_create_device_list(const NimBLEScanResults& results);
+static int prv_count_close_devices(const std::vector<DeviceInfo>& devices);
 static void prv_process_scan_results(void);
 static void prv_check_and_publish_presence_state(int close_device_count);
 
@@ -98,25 +98,25 @@ void presencedetector_run(void)
 // # Private Function Implementations
 // ###########################################################################
 
-static void prv_msg_broker_callback(const msg_t *const message)
+static void prv_msg_broker_callback(const msg_t* const message)
 {
     ASSERT(message != NULL);
 
     switch (message->msg_id)
     {
-    case MSG_2003:
-        // Enable logging
-        is_logging_enabled = true;
-        Serial.println("PresenceDetector: Logging enabled");
-        break;
-    case MSG_2004:
-        // Disable logging
-        is_logging_enabled = false;
-        Serial.println("PresenceDetector: Logging disabled");
-        break;
-    default:
-        // Unknown message ID
-        break;
+        case MSG_2003:
+            // Enable logging
+            is_logging_enabled = true;
+            Serial.println("PresenceDetector: Logging enabled");
+            break;
+        case MSG_2004:
+            // Disable logging
+            is_logging_enabled = false;
+            Serial.println("PresenceDetector: Logging disabled");
+            break;
+        default:
+            // Unknown message ID
+            break;
     }
 }
 
@@ -136,7 +136,7 @@ static float prv_estimate_distance(int rssi)
 }
 
 // Create device list from scan results (no sorting)
-static std::vector<DeviceInfo> prv_create_device_list(const NimBLEScanResults &results)
+static std::vector<DeviceInfo> prv_create_device_list(const NimBLEScanResults& results)
 {
     std::vector<DeviceInfo> devices;
     int device_count = results.getCount();
@@ -144,7 +144,7 @@ static std::vector<DeviceInfo> prv_create_device_list(const NimBLEScanResults &r
     // Convert scan results to vector
     for (int i = 0; i < device_count; i++)
     {
-        const NimBLEAdvertisedDevice *device = results.getDevice(i);
+        const NimBLEAdvertisedDevice* device = results.getDevice(i);
         DeviceInfo info;
         info.device = device;
         info.rssi = device->getRSSI();
@@ -155,13 +155,13 @@ static std::vector<DeviceInfo> prv_create_device_list(const NimBLEScanResults &r
 }
 
 // Count close devices (no logging)
-static int prv_count_close_devices(const std::vector<DeviceInfo> &devices)
+static int prv_count_close_devices(const std::vector<DeviceInfo>& devices)
 {
     int close_device_count = 0;
 
     for (size_t i = 0; i < devices.size(); i++)
     {
-        const NimBLEAdvertisedDevice *device = devices[i].device;
+        const NimBLEAdvertisedDevice* device = devices[i].device;
         int rssi = device->getRSSI();
         float distance = prv_estimate_distance(rssi);
 
@@ -184,8 +184,7 @@ static void prv_check_and_publish_presence_state(int close_device_count)
 
     if (is_logging_enabled)
     {
-        Serial.printf("#close devices %d, Person present = %s\n",
-                      close_device_count,
+        Serial.printf("#close devices %d, Person present = %s\n", close_device_count,
                       is_person_currently_present ? "YES" : "nope");
     }
 

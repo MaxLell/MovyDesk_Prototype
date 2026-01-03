@@ -18,7 +18,7 @@ typedef struct
 // ---------------------------------------------------------------------------
 // Private Variables
 // ---------------------------------------------------------------------------
-static msg_topic_t *topic_library[E_TOPIC_LAST_TOPIC] = {NULL};
+static msg_topic_t* topic_library[E_TOPIC_LAST_TOPIC] = {NULL};
 static msg_topic_t topics[E_TOPIC_LAST_TOPIC] = {0};
 static bool is_initialized = false;
 
@@ -73,7 +73,7 @@ void messagebroker_subscribe(msg_id_e topic, msg_callback_t in_function_ptr)
     ASSERT(is_subscribed);
 }
 
-void messagebroker_publish(const msg_t *const message)
+void messagebroker_publish(const msg_t* const message)
 {
     { // Input Checks
         ASSERT(is_initialized);

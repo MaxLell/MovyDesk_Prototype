@@ -1,28 +1,28 @@
 #include "DeskControl.h"
-#include "custom_assert.h"
-#include "MessageBroker.h"
 #include <Arduino.h>
-#include <string.h>
-#include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
+#include <string.h>
+#include "MessageBroker.h"
+#include "custom_assert.h"
 
 // ###########################################################################
 // # Internal Configuration and Protocol Constants
 // ###########################################################################
 
 // ===== UART Pins Configuration =====
-#define UART_TX_PIN TX2
-#define UART_RX_PIN RX2
-#define SERIAL_INTERFACE Serial2
+#define UART_TX_PIN          TX2
+#define UART_RX_PIN          RX2
+#define SERIAL_INTERFACE     Serial2
 
 // Optional display pin
-#define WAKEUP_PIN 4
+#define WAKEUP_PIN           4
 
 // ===== Protocol Definitions =====
-#define FRAME_LENGTH 8
+#define FRAME_LENGTH         8
 #define REQUEST_FRAME_LENGTH 6
-#define DEFAULT_REPEATS 5
+#define DEFAULT_REPEATS      5
 
 // ===== Command Types =====
 typedef enum
@@ -54,13 +54,13 @@ const uint8_t CMD_PRESET4[FRAME_LENGTH] = {0x9B, 0x06, 0x02, 0x00, 0x01, 0xAC, 0
 // ###########################################################################
 // # Private function declarations
 // ###########################################################################
-static void prv_msg_broker_callback(const msg_t *const message);
-static void prv_set_frame(const uint8_t *f);
+static void prv_msg_broker_callback(const msg_t* const message);
+static void prv_set_frame(const uint8_t* f);
 static void prv_disarm(void);
-static void prv_arm_with(const uint8_t *f);
+static void prv_arm_with(const uint8_t* f);
 static void prv_push_req_byte(uint8_t byte);
 static bool prv_req_match(void);
-static const uint8_t *prv_get_command_frame(desk_command_e cmd);
+static const uint8_t* prv_get_command_frame(desk_command_e cmd);
 static void prv_execute_command(desk_command_e cmd);
 
 // ###########################################################################
@@ -140,55 +140,52 @@ void deskcontrol_run(void)
 // # Private function implementations
 // ###########################################################################
 
-static void prv_msg_broker_callback(const msg_t *const message)
+static void prv_msg_broker_callback(const msg_t* const message)
 {
     ASSERT(message != NULL);
 
     switch (message->msg_id)
     {
-    case MSG_1001:
-        // Handle Desk Move Up
-        prv_execute_command(DESK_CMD_UP);
-        break;
-    case MSG_1002:
-        // Handle Desk Move Down
-        prv_execute_command(DESK_CMD_DOWN);
-        break;
-    case MSG_1003:
-        // Handle Desk move to P1 Preset
-        prv_execute_command(DESK_CMD_PRESET1);
-        break;
-    case MSG_1004:
-        // Handle Desk move to P2 Preset
-        prv_execute_command(DESK_CMD_PRESET2);
-        break;
-    case MSG_1005:
-        // Handle Desk Wake/Enable
-        prv_execute_command(DESK_CMD_WAKE);
-        break;
-    case MSG_1006:
-        // Handle Desk Memory/Store Position
-        prv_execute_command(DESK_CMD_MEMORY);
-        break;
-    case MSG_1007:
-        // Handle Desk move to P3 Preset
-        prv_execute_command(DESK_CMD_PRESET3);
-        break;
-    case MSG_1008:
-        // Handle Desk move to P4 Preset
-        prv_execute_command(DESK_CMD_PRESET4);
-        break;
-    default:
-        // Unknown message ID
-        ASSERT(false);
-        break;
+        case MSG_1001:
+            // Handle Desk Move Up
+            prv_execute_command(DESK_CMD_UP);
+            break;
+        case MSG_1002:
+            // Handle Desk Move Down
+            prv_execute_command(DESK_CMD_DOWN);
+            break;
+        case MSG_1003:
+            // Handle Desk move to P1 Preset
+            prv_execute_command(DESK_CMD_PRESET1);
+            break;
+        case MSG_1004:
+            // Handle Desk move to P2 Preset
+            prv_execute_command(DESK_CMD_PRESET2);
+            break;
+        case MSG_1005:
+            // Handle Desk Wake/Enable
+            prv_execute_command(DESK_CMD_WAKE);
+            break;
+        case MSG_1006:
+            // Handle Desk Memory/Store Position
+            prv_execute_command(DESK_CMD_MEMORY);
+            break;
+        case MSG_1007:
+            // Handle Desk move to P3 Preset
+            prv_execute_command(DESK_CMD_PRESET3);
+            break;
+        case MSG_1008:
+            // Handle Desk move to P4 Preset
+            prv_execute_command(DESK_CMD_PRESET4);
+            break;
+        default:
+            // Unknown message ID
+            ASSERT(false);
+            break;
     }
 }
 
-static void prv_set_frame(const uint8_t *f)
-{
-    memcpy(current_frame, f, FRAME_LENGTH);
-}
+static void prv_set_frame(const uint8_t* f) { memcpy(current_frame, f, FRAME_LENGTH); }
 
 static void prv_disarm(void)
 {
@@ -197,7 +194,7 @@ static void prv_disarm(void)
     digitalWrite(WAKEUP_PIN, LOW);
 }
 
-static void prv_arm_with(const uint8_t *f)
+static void prv_arm_with(const uint8_t* f)
 {
     prv_set_frame(f);
     armed = true;
@@ -210,13 +207,17 @@ static void prv_push_req_byte(uint8_t byte)
     req_window[req_idx] = byte;
     req_idx = (req_idx + 1) % REQUEST_FRAME_LENGTH;
     if (req_idx == 0)
+    {
         req_filled = true;
+    }
 }
 
 static bool prv_req_match(void)
 {
     if (!req_filled)
+    {
         return false;
+    }
 
     // Compare in correct chronological order:
     // req_idx points to the oldest element position (next to overwrite)
@@ -224,39 +225,32 @@ static bool prv_req_match(void)
     {
         size_t idx = (req_idx + i) % REQUEST_FRAME_LENGTH;
         if (req_window[idx] != REQ_FRAME[i])
+        {
             return false;
+        }
     }
     return true;
 }
 
-static const uint8_t *prv_get_command_frame(desk_command_e cmd)
+static const uint8_t* prv_get_command_frame(desk_command_e cmd)
 {
     switch (cmd)
     {
-    case DESK_CMD_WAKE:
-        return CMD_WAKE;
-    case DESK_CMD_UP:
-        return CMD_UP;
-    case DESK_CMD_DOWN:
-        return CMD_DOWN;
-    case DESK_CMD_MEMORY:
-        return CMD_M;
-    case DESK_CMD_PRESET1:
-        return CMD_PRESET1;
-    case DESK_CMD_PRESET2:
-        return CMD_PRESET2;
-    case DESK_CMD_PRESET3:
-        return CMD_PRESET3;
-    case DESK_CMD_PRESET4:
-        return CMD_PRESET4;
-    default:
-        return NULL;
+        case DESK_CMD_WAKE: return CMD_WAKE;
+        case DESK_CMD_UP: return CMD_UP;
+        case DESK_CMD_DOWN: return CMD_DOWN;
+        case DESK_CMD_MEMORY: return CMD_M;
+        case DESK_CMD_PRESET1: return CMD_PRESET1;
+        case DESK_CMD_PRESET2: return CMD_PRESET2;
+        case DESK_CMD_PRESET3: return CMD_PRESET3;
+        case DESK_CMD_PRESET4: return CMD_PRESET4;
+        default: return NULL;
     }
 }
 
 static void prv_execute_command(desk_command_e cmd)
 {
-    const uint8_t *frame = prv_get_command_frame(cmd);
+    const uint8_t* frame = prv_get_command_frame(cmd);
     if (frame != NULL)
     {
         prv_arm_with(frame);

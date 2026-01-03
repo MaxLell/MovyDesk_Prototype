@@ -47,22 +47,22 @@ static int prv_console_put_char(char in_char);
 static char prv_console_get_char(void);
 
 // System Commands
-static int prv_cmd_hello_world(int argc, char *argv[], void *context);
-static int prv_cmd_echo_string(int argc, char *argv[], void *context);
-static int prv_cmd_display_args(int argc, char *argv[], void *context);
-static int prv_cmd_system_info(int argc, char *argv[], void *context);
-static int prv_cmd_reset_system(int argc, char *argv[], void *context);
+static int prv_cmd_hello_world(int argc, char* argv[], void* context);
+static int prv_cmd_echo_string(int argc, char* argv[], void* context);
+static int prv_cmd_display_args(int argc, char* argv[], void* context);
+static int prv_cmd_system_info(int argc, char* argv[], void* context);
+static int prv_cmd_reset_system(int argc, char* argv[], void* context);
 
 // Message Broker Test commands
-static void prv_msg_broker_callback(const msg_t *const message);
-static int prv_cmd_msgbroker_can_subscribe_and_publish(int argc, char *argv[], void *context);
+static void prv_msg_broker_callback(const msg_t* const message);
+static int prv_cmd_msgbroker_can_subscribe_and_publish(int argc, char* argv[], void* context);
 
 // Desk Control Test Commands
-static int prv_cmd_deskcontrol_move_command(int argc, char *argv[], void *context);
+static int prv_cmd_deskcontrol_move_command(int argc, char* argv[], void* context);
 
 // Presence Detector Test Commands
-static int prv_cmd_pd_start_logging(int argc, char *argv[], void *context);
-static int prv_cmd_pd_stop_logging(int argc, char *argv[], void *context);
+static int prv_cmd_pd_start_logging(int argc, char* argv[], void* context);
+static int prv_cmd_pd_stop_logging(int argc, char* argv[], void* context);
 
 // ###########################################################################
 // # Private Variables
@@ -93,7 +93,8 @@ static cli_binding_t cli_bindings[] = {
     {"msgbroker_test", prv_cmd_msgbroker_can_subscribe_and_publish, NULL, "Test Message Broker subscribe and publish"},
 
     // Desk Control Commands
-    {"desk_move", prv_cmd_deskcontrol_move_command, NULL, "Move desk: up, down, preset1, preset2, preset3, preset4, wake, memory"},
+    {"desk_move", prv_cmd_deskcontrol_move_command, NULL,
+     "Move desk: up, down, preset1, preset2, preset3, preset4, wake, memory"},
 
     // Presence Detector Commands
     {"pd_log_enable", prv_cmd_pd_start_logging, NULL, "Start logging on the presence detector"},
@@ -183,7 +184,7 @@ static char prv_console_get_char(void)
 // = Commands
 // ============================
 
-static int prv_cmd_hello_world(int argc, char *argv[], void *context)
+static int prv_cmd_hello_world(int argc, char* argv[], void* context)
 {
     (void)argc;
     (void)argv;
@@ -192,7 +193,7 @@ static int prv_cmd_hello_world(int argc, char *argv[], void *context)
     return CLI_OK_STATUS;
 }
 
-static int prv_cmd_echo_string(int argc, char *argv[], void *context)
+static int prv_cmd_echo_string(int argc, char* argv[], void* context)
 {
     if (argc != 2)
     {
@@ -205,7 +206,7 @@ static int prv_cmd_echo_string(int argc, char *argv[], void *context)
     return CLI_OK_STATUS;
 }
 
-static int prv_cmd_display_args(int argc, char *argv[], void *context)
+static int prv_cmd_display_args(int argc, char* argv[], void* context)
 {
     cli_print("Number of arguments: %d\n", argc);
     for (int i = 0; i < argc; i++)
@@ -217,7 +218,7 @@ static int prv_cmd_display_args(int argc, char *argv[], void *context)
     return CLI_OK_STATUS;
 }
 
-static int prv_cmd_system_info(int argc, char *argv[], void *context)
+static int prv_cmd_system_info(int argc, char* argv[], void* context)
 {
     (void)argc;
     (void)argv;
@@ -242,7 +243,7 @@ static int prv_cmd_system_info(int argc, char *argv[], void *context)
     return CLI_OK_STATUS;
 }
 
-static int prv_cmd_reset_system(int argc, char *argv[], void *context)
+static int prv_cmd_reset_system(int argc, char* argv[], void* context)
 {
     (void)argc;
     (void)argv;
@@ -260,7 +261,7 @@ static int prv_cmd_reset_system(int argc, char *argv[], void *context)
     return CLI_OK_STATUS;
 }
 
-static void prv_msg_broker_callback(const msg_t *const message)
+static void prv_msg_broker_callback(const msg_t* const message)
 {
     if (message->msg_id != MSG_0001)
     {
@@ -271,7 +272,7 @@ static void prv_msg_broker_callback(const msg_t *const message)
     cli_print("Message Content: %s", message->data_bytes);
 }
 
-static int prv_cmd_msgbroker_can_subscribe_and_publish(int argc, char *argv[], void *context)
+static int prv_cmd_msgbroker_can_subscribe_and_publish(int argc, char* argv[], void* context)
 {
     (void)argc;
     (void)argv;
@@ -283,9 +284,9 @@ static int prv_cmd_msgbroker_can_subscribe_and_publish(int argc, char *argv[], v
     // Publish a test message
     msg_t test_msg;
     test_msg.msg_id = MSG_0001;
-    const char *test_data = "The elephant has been tickled!";
+    const char* test_data = "The elephant has been tickled!";
     test_msg.data_size = strlen(test_data) + 1; // Including null terminator
-    test_msg.data_bytes = (u8 *)test_data;
+    test_msg.data_bytes = (u8*)test_data;
 
     messagebroker_publish(&test_msg);
 
@@ -293,7 +294,7 @@ static int prv_cmd_msgbroker_can_subscribe_and_publish(int argc, char *argv[], v
 }
 
 // Desk Control Command Handlers
-static int prv_cmd_deskcontrol_move_command(int argc, char *argv[], void *context)
+static int prv_cmd_deskcontrol_move_command(int argc, char* argv[], void* context)
 {
     (void)context;
 
@@ -303,7 +304,7 @@ static int prv_cmd_deskcontrol_move_command(int argc, char *argv[], void *contex
         return CLI_FAIL_STATUS;
     }
 
-    const char *command = argv[1];
+    const char* command = argv[1];
     msg_t desk_msg;
     desk_msg.data_size = 0;
     desk_msg.data_bytes = NULL;
@@ -352,7 +353,7 @@ static int prv_cmd_deskcontrol_move_command(int argc, char *argv[], void *contex
 }
 
 // Presence Detector Commands
-static int prv_cmd_pd_start_logging(int argc, char *argv[], void *context)
+static int prv_cmd_pd_start_logging(int argc, char* argv[], void* context)
 {
     (void)argc;
     (void)argv;
@@ -368,7 +369,7 @@ static int prv_cmd_pd_start_logging(int argc, char *argv[], void *context)
     return CLI_OK_STATUS;
 }
 
-static int prv_cmd_pd_stop_logging(int argc, char *argv[], void *context)
+static int prv_cmd_pd_stop_logging(int argc, char* argv[], void* context)
 {
     (void)argc;
     (void)argv;
