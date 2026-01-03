@@ -104,7 +104,7 @@ static cli_binding_t cli_bindings[] = {
     {"pd_log_disable", prv_cmd_pd_stop_logging, NULL, "Stop logging on the presence detector"},
 
     // Timer Manager Commands
-    {"timer_start", prv_cmd_timer_start_countdown, NULL, "Start countdown timer (5 seconds)"},
+    {"test_timer", prv_cmd_timer_start_countdown, NULL, "Start countdown timer: test_timer <seconds>"},
 
 };
 
@@ -404,12 +404,24 @@ static int prv_cmd_pd_stop_logging(int argc, char* argv[], void* context)
 // Timer Manager Commands
 static int prv_cmd_timer_start_countdown(int argc, char* argv[], void* context)
 {
-    (void)argc;
-    (void)argv;
     (void)context;
 
-    // Start a 5 second countdown timer
-    uint32_t countdown_time_ms = 5000; // 5 seconds
+    if (argc != 2)
+    {
+        cli_print("Usage: test_timer <seconds>");
+        return CLI_FAIL_STATUS;
+    }
+
+    // Parse the seconds argument
+    int seconds = atoi(argv[1]);
+    if (seconds <= 0)
+    {
+        cli_print("Error: seconds must be a positive number");
+        return CLI_FAIL_STATUS;
+    }
+
+    // Convert seconds to milliseconds
+    uint32_t countdown_time_ms = (uint32_t)seconds * 1000;
 
     msg_t timer_msg;
     timer_msg.msg_id = MSG_3001; // Start countdown
@@ -417,6 +429,6 @@ static int prv_cmd_timer_start_countdown(int argc, char* argv[], void* context)
     timer_msg.data_bytes = (u8*)&countdown_time_ms;
 
     messagebroker_publish(&timer_msg);
-    cli_print("Starting 5 second countdown timer...");
+    cli_print("Starting %d second countdown timer...", seconds);
     return CLI_OK_STATUS;
 }
