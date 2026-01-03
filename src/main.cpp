@@ -3,6 +3,7 @@
 #include "Console.h"
 #include "DeskControl.h"
 #include "PresenceDetector.h"
+#include "ApplicationControl.h"
 #include "MessageBroker.h"
 
 // FreeRTOS includes
@@ -15,6 +16,7 @@
 void console_task(void *parameter);
 void deskcontrol_task(void *parameter);
 void presencedetector_task(void *parameter);
+void applicationcontrol_task(void *parameter);
 static void prv_assert_failed(const char *file, uint32_t line, const char *expr);
 
 // ###########################################################################
@@ -23,6 +25,7 @@ static void prv_assert_failed(const char *file, uint32_t line, const char *expr)
 TaskHandle_t console_task_handle = NULL;
 TaskHandle_t deskcontrol_task_handle = NULL;
 TaskHandle_t presencedetector_task_handle = NULL;
+TaskHandle_t applicationcontrol_task_handle = NULL;
 
 // ###########################################################################
 // # Private Data
@@ -69,6 +72,16 @@ void setup()
       NULL,                         // Task parameters
       1,                            // Task priority (same as console)
       &presencedetector_task_handle // Task handle
+  );
+
+  // Create application control task
+  xTaskCreate(
+      applicationcontrol_task,        // Task function
+      "ApplicationControlTask",       // Task name
+      4096,                           // Stack size (words)
+      NULL,                           // Task parameters
+      2,                              // Task priority (higher than console)
+      &applicationcontrol_task_handle // Task handle
   );
 
   // Setup LED pin
@@ -137,6 +150,23 @@ void presencedetector_task(void *parameter)
   {
     // Run the presence detector processing
     presencedetector_run();
+
+    delay(5);
+  }
+}
+
+void applicationcontrol_task(void *parameter)
+{
+  (void)parameter; // Unused parameter
+
+  // Initialize application control
+  applicationcontrol_init();
+
+  // Task main loop
+  while (1)
+  {
+    // Run the application control processing
+    applicationcontrol_run();
 
     delay(5);
   }
