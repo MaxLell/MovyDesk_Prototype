@@ -9,8 +9,6 @@
 // # Internal Configuration
 // ###########################################################################
 
-// TODO: Add timer-specific configuration here
-
 // ###########################################################################
 // # Private function declarations
 // ###########################################################################
@@ -29,6 +27,7 @@ static TimerHandle_t countdown_timer_handle = NULL;
 
 void timermanager_init(void)
 {
+    // Subscribe to relevant messages
     messagebroker_subscribe(MSG_3001, prv_msg_broker_callback); // Start Countdown with Time Stamp
     messagebroker_subscribe(MSG_3002, prv_msg_broker_callback); // Stop Countdown
 
@@ -60,13 +59,15 @@ static void prv_msg_broker_callback(const msg_t* const message)
     {
         case MSG_3001: // Start Countdown with Time Stamp from the Message Defintions
         {
-            // Start a FreeRTOS timer here with the specified time from message->data_bytes
+            ASSERT(countdown_timer_handle != NULL);
             ASSERT(message->data_size == sizeof(uint32_t));
+
             uint32_t countdown_time_ms = 0;
+            // Start a FreeRTOS timer here with the specified time from message->data_bytes
             memcpy(&countdown_time_ms, message->data_bytes, sizeof(uint32_t));
 
             ASSERT(countdown_time_ms > 0);
-            ASSERT(countdown_timer_handle != NULL);
+
             // Change timer period and start the timer
 
             BaseType_t status = xTimerStart(countdown_timer_handle, pdMS_TO_TICKS(countdown_time_ms));
@@ -93,7 +94,7 @@ static void prv_msg_broker_callback(const msg_t* const message)
 
 static void prv_timer_expired_callback(TimerHandle_t xTimer)
 {
-    (void)xTimer; // Unused parameter
+    ASSERT(xTimer == countdown_timer_handle);
 
     msg_t msg;
     msg.msg_id = MSG_3003; // Countdown finished
