@@ -27,12 +27,10 @@ typedef enum
     MSG_2002, // No Presence Detected
     MSG_2003, // Enable Presence Detector Logging
     MSG_2004, // Disable Presence Detector Logging
-    MSG_2005, // Start Presence Detection
-    MSG_2006, // Stop Presence Detection
 
     // Messages for the Countdown Timer
-    MSG_3001, // Countdown Time Stamp
-    MSG_3002, // Start Countdown
+    MSG_3001, // Start Countdown with Time Stamp
+    MSG_3002, // Stop Countdown
     MSG_3003, // Countdown finished
 
     E_TOPIC_LAST_TOPIC // Last Topic - DO NOT USE (Only for boundary checks)
