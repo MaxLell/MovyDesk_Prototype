@@ -179,46 +179,40 @@ static void prv_check_and_publish_presence_state(int close_device_count)
 {
     bool is_person_currently_present = (close_device_count >= PRESENCE_THRESHOLD);
 
-    if (is_logging_enabled)
+    // Update presence state and always publish
+    bool state_changed = (is_person_currently_present != presence_detected);
+    presence_detected = is_person_currently_present;
+
+    msg_t presence_msg;
+    presence_msg.data_size = 0;
+    presence_msg.data_bytes = NULL;
+
+    if (presence_detected)
     {
-        Serial.print("[PresenceDetect] Close devices: ");
-        Serial.print(close_device_count);
-        Serial.print(", Person present: ");
-        Serial.println(is_person_currently_present ? "YES" : "NO");
+        presence_msg.msg_id = MSG_2001; // Presence Detected
+        if (is_logging_enabled)
+        {
+            Serial.print("[PresenceDetect] Person ");
+            Serial.print(state_changed ? "DETECTED" : "PRESENT");
+            Serial.print(" (");
+            Serial.print(close_device_count);
+            Serial.println(" devices)");
+        }
+    }
+    else
+    {
+        presence_msg.msg_id = MSG_2002; // No Presence Detected
+        if (is_logging_enabled)
+        {
+            Serial.print("[PresenceDetect] Person ");
+            Serial.print(state_changed ? "LOST" : "ABSENT");
+            Serial.print(" (");
+            Serial.print(close_device_count);
+            Serial.println(" devices)");
+        }
     }
 
-    // Only publish if state changed
-    if (is_person_currently_present != presence_detected)
-    {
-        presence_detected = is_person_currently_present;
-
-        msg_t presence_msg;
-        presence_msg.data_size = 0;
-        presence_msg.data_bytes = NULL;
-
-        if (presence_detected)
-        {
-            presence_msg.msg_id = MSG_2001; // Presence Detected
-            if (is_logging_enabled)
-            {
-                Serial.print("[PresenceDetect] Person DETECTED (");
-                Serial.print(close_device_count);
-                Serial.println(" devices)");
-            }
-        }
-        else
-        {
-            presence_msg.msg_id = MSG_2002; // No Presence Detected
-            if (is_logging_enabled)
-            {
-                Serial.print("[PresenceDetect] Person LOST (");
-                Serial.print(close_device_count);
-                Serial.println(" devices)");
-            }
-        }
-
-        messagebroker_publish(&presence_msg);
-    }
+    messagebroker_publish(&presence_msg);
 }
 
 // Process current scan results (non-blocking)

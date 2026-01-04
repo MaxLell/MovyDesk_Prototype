@@ -105,10 +105,6 @@ static cli_binding_t cli_bindings[] = {
     {"desk_move", prv_cmd_deskcontrol_move_command, NULL,
      "Move desk: up, down, preset1, preset2, preset3, preset4, wake, memory"},
 
-    // Presence Detector Commands
-    {"pd_log_enable", prv_cmd_pd_start_logging, NULL, "Start logging on the presence detector"},
-    {"pd_log_disable", prv_cmd_pd_stop_logging, NULL, "Stop logging on the presence detector"},
-
     // Timer Manager Commands
     {"test_timer", prv_cmd_timer_start_countdown, NULL, "Start countdown timer: test_timer <seconds>"},
 
@@ -386,7 +382,7 @@ static int prv_cmd_log_control(int argc, char* argv[], void* context)
     }
 
     // Parse enable/disable
-    bool enable_logging;
+    static bool enable_logging; // Static so it persists after function returns
     if (strcmp(argv[1], "on") == 0)
     {
         enable_logging = true;
@@ -434,48 +430,6 @@ static int prv_cmd_log_control(int argc, char* argv[], void* context)
 
     messagebroker_publish(&log_msg);
 
-    // Print confirmation
-    cli_print("Logging ");
-    cli_print(enable_logging ? "enabled" : "disabled");
-    cli_print(" for ");
-    cli_print(module_name);
-    cli_print("\n");
-
-    return CLI_OK_STATUS;
-}
-
-// Presence Detector Commands
-static int prv_cmd_pd_start_logging(int argc, char* argv[], void* context)
-{
-    (void)argc;
-    (void)argv;
-    (void)context;
-
-    bool enable_logging = true;
-    msg_t presence_msg;
-    presence_msg.msg_id = MSG_0005;
-    presence_msg.data_size = sizeof(bool);
-    presence_msg.data_bytes = (u8*)&enable_logging;
-
-    messagebroker_publish(&presence_msg);
-    cli_print("Started continuous presence measurement");
-    return CLI_OK_STATUS;
-}
-
-static int prv_cmd_pd_stop_logging(int argc, char* argv[], void* context)
-{
-    (void)argc;
-    (void)argv;
-    (void)context;
-
-    bool enable_logging = false;
-    msg_t presence_msg;
-    presence_msg.msg_id = MSG_0005;
-    presence_msg.data_size = sizeof(bool);
-    presence_msg.data_bytes = (u8*)&enable_logging;
-
-    messagebroker_publish(&presence_msg);
-    cli_print("Stopped continuous presence measurement");
     return CLI_OK_STATUS;
 }
 
