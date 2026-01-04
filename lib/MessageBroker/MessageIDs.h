@@ -18,15 +18,8 @@ typedef enum
     MSG_0005, // Enable/Disable Logging for the Presence Detector Module
 
     // Messages for Desk Control
-    MSG_1001, // Desk Move Up
-    MSG_1002, // Desk Move Down
-    MSG_1003, // Desk move to P1 Preset
-    MSG_1004, // Desk move to P2 Preset
-    MSG_1005, // Desk Wake/Enable
-    MSG_1006, // Desk Memory/Store Position
-    MSG_1007, // Desk move to P3 Preset
-    MSG_1008, // Desk move to P4 Preset
-    MSG_1009, // Toggle Desk Position
+    MSG_1000, // Move Desk to up, down, p1, p2, p3, p4, wake, memory
+    MSG_1001, // Toggle Desk Position
 
     // Messages for the Presence Detector
     MSG_2001, // Presence Detected
@@ -36,6 +29,9 @@ typedef enum
     MSG_3001, // Start Countdown with Time Stamp
     MSG_3002, // Stop Countdown
     MSG_3003, // Countdown finished
+
+    // Application Control Configuration Messages
+    MSG_4001, // Set Timer Interval (in minutes)
 
     E_TOPIC_LAST_TOPIC // Last Topic - DO NOT USE (Only for boundary checks)
 } msg_id_e;

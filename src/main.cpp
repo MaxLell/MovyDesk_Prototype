@@ -20,6 +20,7 @@ void presencedetector_task(void* parameter);
 void applicationcontrol_task(void* parameter);
 void timermanager_task(void* parameter);
 static void prv_assert_failed(const char* file, uint32_t line, const char* expr);
+static void prv_toggle_led(void);
 
 // ###########################################################################
 // # Task handles
@@ -65,15 +66,6 @@ void setup()
                 &deskcontrol_task_handle // Task handle
     );
 
-    // Create presence detector task
-    xTaskCreate(presencedetector_task,        // Task function
-                "PresenceDetectorTask",       // Task name
-                4096,                         // Stack size (words)
-                NULL,                         // Task parameters
-                1,                            // Task priority (same as console)
-                &presencedetector_task_handle // Task handle
-    );
-
     // Create application control task
     xTaskCreate(applicationcontrol_task,        // Task function
                 "ApplicationControlTask",       // Task name
@@ -92,6 +84,19 @@ void setup()
                 &timermanager_task_handle // Task handle
     );
 
+    // Stabilize the power on the system to avoid brownout issues on ESP32
+    // The presence detector task requires more power during bluetooth scanning
+    delay(1000);
+
+    // Create presence detector task
+    xTaskCreate(presencedetector_task,        // Task function
+                "PresenceDetectorTask",       // Task name
+                4096,                         // Stack size (words)
+                NULL,                         // Task parameters
+                1,                            // Task priority (same as console)
+                &presencedetector_task_handle // Task handle
+    );
+
     // Setup LED pin
     pinMode(LED_PIN, OUTPUT);
 }
@@ -101,9 +106,7 @@ void loop()
     if (!assert_was_triggered)
     {
         // Toggle LED - for a visual heartbeat
-        static bool led_state = false;
-        led_state = !led_state;
-        digitalWrite(LED_PIN, led_state ? HIGH : LOW);
+        prv_toggle_led();
         delay(1000);
     }
 }
@@ -208,6 +211,14 @@ static void prv_assert_failed(const char* file, uint32_t line, const char* expr)
     // In embedded systems, we might want to reset instead of infinite loop
     while (1)
     {
-        delay(1000); // Keep watchdog happy if enabled
+        prv_toggle_led();
+        delay(100); // Keep watchdog happy if enabled
     }
+}
+
+static void prv_toggle_led(void)
+{
+    static bool led_state = false;
+    led_state = !led_state;
+    digitalWrite(LED_PIN, led_state ? HIGH : LOW);
 }

@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <string.h>
 #include "MessageBroker.h"
+#include "MessageDefinitions.h"
 #include "custom_assert.h"
 
 // ###########################################################################
@@ -23,20 +24,6 @@
 #define FRAME_LENGTH         8
 #define REQUEST_FRAME_LENGTH 6
 #define DEFAULT_REPEATS      5
-
-// ===== Command Types =====
-typedef enum
-{
-    DESK_CMD_NONE = 0,
-    DESK_CMD_WAKE,
-    DESK_CMD_UP,
-    DESK_CMD_DOWN,
-    DESK_CMD_MEMORY,
-    DESK_CMD_PRESET1,
-    DESK_CMD_PRESET2,
-    DESK_CMD_PRESET3,
-    DESK_CMD_PRESET4
-} desk_command_e;
 
 // Request frame (incoming from desk)
 const uint8_t REQ_FRAME[REQUEST_FRAME_LENGTH] = {0x9B, 0x04, 0x11, 0x7C, 0xC3, 0x9D};
@@ -81,6 +68,9 @@ static uint8_t req_window[REQUEST_FRAME_LENGTH];
 static size_t req_idx = 0;
 static bool req_filled = false;
 
+// Last command executed
+static desk_command_e g_last_toggle_position = DESK_CMD_PRESET1;
+
 // ###########################################################################
 // # Public function implementations
 // ###########################################################################
@@ -104,15 +94,7 @@ void deskcontrol_init(void)
 
     // Subscribe to relevant messages
     messagebroker_subscribe(MSG_0004, prv_msg_broker_callback); // Logging control
-    messagebroker_subscribe(MSG_1001, prv_msg_broker_callback);
-    messagebroker_subscribe(MSG_1002, prv_msg_broker_callback);
-    messagebroker_subscribe(MSG_1003, prv_msg_broker_callback);
-    messagebroker_subscribe(MSG_1004, prv_msg_broker_callback);
-    messagebroker_subscribe(MSG_1005, prv_msg_broker_callback);
-    messagebroker_subscribe(MSG_1006, prv_msg_broker_callback);
-    messagebroker_subscribe(MSG_1007, prv_msg_broker_callback);
-    messagebroker_subscribe(MSG_1008, prv_msg_broker_callback);
-    messagebroker_subscribe(MSG_1009, prv_msg_broker_callback);
+    messagebroker_subscribe(MSG_1000, prv_msg_broker_callback); // desk command
 }
 
 void deskcontrol_run(void)
@@ -168,72 +150,38 @@ static void prv_msg_broker_callback(const msg_t* const message)
                 Serial.println(prv_logging_enabled ? "enabled" : "disabled");
             }
             break;
-        case MSG_1001:
-            if (prv_logging_enabled)
+
+        case MSG_1000: // Unified desk command
+            if (message->data_size == sizeof(desk_command_e) && message->data_bytes != NULL)
             {
-                Serial.println("[DeskCtrl] Command: Move Up");
+
+                desk_command_e cmd = *(desk_command_e*)(message->data_bytes);
+
+                ASSERT(cmd > DESK_CMD_NONE);
+                ASSERT(cmd < DESK_CMD_LAST);
+
+                if (cmd == DESK_CMD_TOGGLE)
+                {
+                    cmd = (g_last_toggle_position == DESK_CMD_PRESET1) ? DESK_CMD_PRESET2 : DESK_CMD_PRESET1;
+                    g_last_toggle_position = cmd;
+                }
+                if (prv_logging_enabled)
+                {
+                    Serial.print("[DeskCtrl] Command: ");
+                    Serial.println(cmd);
+                }
+
+                prv_execute_command(cmd);
             }
-            prv_execute_command(DESK_CMD_UP);
             break;
-        case MSG_1002:
-            if (prv_logging_enabled)
-            {
-                Serial.println("[DeskCtrl] Command: Move Down");
-            }
-            prv_execute_command(DESK_CMD_DOWN);
-            break;
-        case MSG_1003:
-            if (prv_logging_enabled)
-            {
-                Serial.println("[DeskCtrl] Command: Preset 1");
-            }
-            prv_execute_command(DESK_CMD_PRESET1);
-            break;
-        case MSG_1004:
-            if (prv_logging_enabled)
-            {
-                Serial.println("[DeskCtrl] Command: Preset 2");
-            }
-            prv_execute_command(DESK_CMD_PRESET2);
-            break;
-        case MSG_1005:
-            if (prv_logging_enabled)
-            {
-                Serial.println("[DeskCtrl] Command: Wake/Enable");
-            }
-            prv_execute_command(DESK_CMD_WAKE);
-            break;
-        case MSG_1006:
-            if (prv_logging_enabled)
-            {
-                Serial.println("[DeskCtrl] Command: Memory/Store");
-            }
-            prv_execute_command(DESK_CMD_MEMORY);
-            break;
-        case MSG_1007:
-            if (prv_logging_enabled)
-            {
-                Serial.println("[DeskCtrl] Command: Preset 3");
-            }
-            prv_execute_command(DESK_CMD_PRESET3);
-            break;
-        case MSG_1008:
-            if (prv_logging_enabled)
-            {
-                Serial.println("[DeskCtrl] Command: Preset 4");
-            }
-            prv_execute_command(DESK_CMD_PRESET4);
-            break;
-        case MSG_1009:
-            if (prv_logging_enabled)
-            {
-                Serial.println("[DeskCtrl] Command: Toggle Position");
-            }
-            // Toggle logic will be added later if needed
-            break;
+
         default:
             // Unknown message ID
-            ASSERT(false);
+            if (prv_logging_enabled)
+            {
+                Serial.print("[DeskCtrl] Unknown message ID: ");
+                Serial.println(message->msg_id);
+            }
             break;
     }
 }

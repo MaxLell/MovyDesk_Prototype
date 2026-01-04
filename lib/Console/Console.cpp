@@ -31,11 +31,11 @@
  */
 
 #include "Console.h"
-#include "custom_assert.h"
-#include "custom_types.h"
-
 #include "Cli.h"
 #include "MessageBroker.h"
+#include "MessageDefinitions.h"
+#include "custom_assert.h"
+#include "custom_types.h"
 
 // Include Arduino Serial for I/O
 #include <Arduino.h>
@@ -47,9 +47,6 @@ static int prv_console_put_char(char in_char);
 static char prv_console_get_char(void);
 
 // System Commands
-static int prv_cmd_hello_world(int argc, char* argv[], void* context);
-static int prv_cmd_echo_string(int argc, char* argv[], void* context);
-static int prv_cmd_display_args(int argc, char* argv[], void* context);
 static int prv_cmd_system_info(int argc, char* argv[], void* context);
 static int prv_cmd_reset_system(int argc, char* argv[], void* context);
 
@@ -70,6 +67,9 @@ static int prv_cmd_pd_stop_logging(int argc, char* argv[], void* context);
 // Timer Manager Test Commands
 static int prv_cmd_timer_start_countdown(int argc, char* argv[], void* context);
 
+// Application Control Commands
+static int prv_cmd_appctrl_set_timer_interval(int argc, char* argv[], void* context);
+
 // ###########################################################################
 // # Private Variables
 // ###########################################################################
@@ -89,9 +89,6 @@ static cli_cfg_t g_cli_cfg = {0};
  */
 static cli_binding_t cli_bindings[] = {
     // System Commands
-    {"hello", prv_cmd_hello_world, NULL, "Say hello"},
-    {"args", prv_cmd_display_args, NULL, "Displays the given cli arguments"},
-    {"echo", prv_cmd_echo_string, NULL, "Echoes the given string"},
     {"system_info", prv_cmd_system_info, NULL, "Show system information"},
     {"restart", prv_cmd_reset_system, NULL, "Restart the system"},
 
@@ -102,11 +99,14 @@ static cli_binding_t cli_bindings[] = {
     {"log", prv_cmd_log_control, NULL, "Control module logging: log <on|off> <appctrl|deskctrl|presence>"},
 
     // Desk Control Commands
-    {"desk_move", prv_cmd_deskcontrol_move_command, NULL,
-     "Move desk: up, down, preset1, preset2, preset3, preset4, wake, memory"},
+    {"move_desk", prv_cmd_deskcontrol_move_command, NULL, "Move desk: move_desk <up|down|p1|p2|p3|p4|wake|memory>"},
 
     // Timer Manager Commands
     {"test_timer", prv_cmd_timer_start_countdown, NULL, "Start countdown timer: test_timer <seconds>"},
+
+    // Application Control Commands
+    {"appctrl_set_new_timer", prv_cmd_appctrl_set_timer_interval, NULL,
+     "Sets a new timer interval: appctrl_set_new_timer <minutes>"},
 
 };
 
@@ -121,13 +121,13 @@ void console_init(void)
     // Initialize Serial communication
     Serial.begin(115200);
 
-    u16 wait_count_ms = 0;
-    while (!Serial)
-    {
-        wait_count_ms += 10;
-        delay(10);
-        ASSERT(wait_count_ms < 5000); // Wait max 5 seconds for Serial to initialize
-    }
+    // u16 wait_count_ms = 0;
+    // while (!Serial)
+    // {
+    //     wait_count_ms += 10;
+    //     delay(10);
+    //     ASSERT(wait_count_ms < 5000); // Wait max 5 seconds for Serial to initialize
+    // }
 
     /**
      * Hands over the statically allocated cli_cfg_t struct.
@@ -194,40 +194,6 @@ static char prv_console_get_char(void)
 // ============================
 // = Commands
 // ============================
-
-static int prv_cmd_hello_world(int argc, char* argv[], void* context)
-{
-    (void)argc;
-    (void)argv;
-    (void)context;
-    cli_print("Hello World from MovyDesk!\n");
-    return CLI_OK_STATUS;
-}
-
-static int prv_cmd_echo_string(int argc, char* argv[], void* context)
-{
-    if (argc != 2)
-    {
-        cli_print("Usage: echo <string>\n");
-        cli_print("Give one argument to echo\n");
-        return CLI_FAIL_STATUS;
-    }
-    (void)context;
-    cli_print("-> %s\n", argv[1]);
-    return CLI_OK_STATUS;
-}
-
-static int prv_cmd_display_args(int argc, char* argv[], void* context)
-{
-    cli_print("Number of arguments: %d\n", argc);
-    for (int i = 0; i < argc; i++)
-    {
-        cli_print("argv[%d] --> \"%s\"\n", i, argv[i]);
-    }
-
-    (void)context;
-    return CLI_OK_STATUS;
-}
 
 static int prv_cmd_system_info(int argc, char* argv[], void* context)
 {
@@ -318,55 +284,65 @@ static int prv_cmd_deskcontrol_move_command(int argc, char* argv[], void* contex
 
     if (argc != 2)
     {
-        cli_print("Usage: desk_move <up|down|preset1|preset2|preset3|preset4|enable|store>");
+        cli_print("Usage: move_desk <up|down|p1|p2|p3|p4|wake|memory|toggle>");
         return CLI_FAIL_STATUS;
     }
 
     const char* command = argv[1];
-    msg_t desk_msg;
-    desk_msg.data_size = 0;
-    desk_msg.data_bytes = NULL;
+    static desk_command_e desk_cmd; // Static to persist after function returns
 
+    // Parse command string to enum
     if (strcmp(command, "up") == 0)
     {
-        desk_msg.msg_id = MSG_1001;
+        desk_cmd = DESK_CMD_UP;
     }
     else if (strcmp(command, "down") == 0)
     {
-        desk_msg.msg_id = MSG_1002;
+        desk_cmd = DESK_CMD_DOWN;
     }
-    else if (strcmp(command, "preset1") == 0)
+    else if (strcmp(command, "p1") == 0)
     {
-        desk_msg.msg_id = MSG_1003;
+        desk_cmd = DESK_CMD_PRESET1;
     }
-    else if (strcmp(command, "preset2") == 0)
+    else if (strcmp(command, "p2") == 0)
     {
-        desk_msg.msg_id = MSG_1004;
+        desk_cmd = DESK_CMD_PRESET2;
     }
-    else if (strcmp(command, "enable") == 0)
+    else if (strcmp(command, "p3") == 0)
     {
-        desk_msg.msg_id = MSG_1005;
+        desk_cmd = DESK_CMD_PRESET3;
     }
-    else if (strcmp(command, "store") == 0)
+    else if (strcmp(command, "p4") == 0)
     {
-        desk_msg.msg_id = MSG_1006;
+        desk_cmd = DESK_CMD_PRESET4;
     }
-    else if (strcmp(command, "preset3") == 0)
+    else if (strcmp(command, "wake") == 0)
     {
-        desk_msg.msg_id = MSG_1007;
+        desk_cmd = DESK_CMD_WAKE;
     }
-    else if (strcmp(command, "preset4") == 0)
+    else if (strcmp(command, "memory") == 0)
     {
-        desk_msg.msg_id = MSG_1008;
+        desk_cmd = DESK_CMD_MEMORY;
+    }
+    else if (strcmp(command, "toggle") == 0)
+    {
+        desk_cmd = DESK_CMD_TOGGLE;
     }
     else
     {
         cli_print("Unknown command: %s", command);
+        cli_print("Valid commands: up, down, p1, p2, p3, p4, wake, memory, toggle");
         return CLI_FAIL_STATUS;
     }
 
+    // Use MSG_1000 with the command enum as data
+    msg_t desk_msg;
+    desk_msg.msg_id = MSG_1000;
+    desk_msg.data_size = sizeof(desk_command_e);
+    desk_msg.data_bytes = (u8*)&desk_cmd;
+
     messagebroker_publish(&desk_msg);
-    cli_print("Published desk control command: %s", command);
+    cli_print("Moving desk: %s", command);
     return CLI_OK_STATUS;
 }
 
@@ -462,5 +438,39 @@ static int prv_cmd_timer_start_countdown(int argc, char* argv[], void* context)
 
     messagebroker_publish(&timer_msg);
     cli_print("Starting %d second countdown timer...", seconds);
+    return CLI_OK_STATUS;
+}
+
+// Application Control Commands
+static int prv_cmd_appctrl_set_timer_interval(int argc, char* argv[], void* context)
+{
+    (void)context;
+
+    if (argc != 2)
+    {
+        cli_print("Usage: set_timer <minutes>");
+        return CLI_FAIL_STATUS;
+    }
+
+    // Parse the minutes argument
+    int minutes = atoi(argv[1]);
+    if (minutes <= 0 || minutes > 255)
+    {
+        cli_print("Error: minutes must be between 1 and 255");
+        return CLI_FAIL_STATUS;
+    }
+
+    // Store as static to persist beyond function scope
+    static u32 timer_interval = 0;
+    timer_interval = (u32)minutes * 60 * 1000; // Convert minutes to milliseconds
+
+    // Publish message to ApplicationControl
+    msg_t timer_msg;
+    timer_msg.msg_id = MSG_4001; // Set Timer Interval
+    timer_msg.data_size = sizeof(u32);
+    timer_msg.data_bytes = (u8*)&timer_interval;
+
+    messagebroker_publish(&timer_msg);
+    cli_print("Timer interval set to %d minutes", minutes);
     return CLI_OK_STATUS;
 }

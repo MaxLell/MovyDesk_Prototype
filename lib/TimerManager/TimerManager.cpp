@@ -82,8 +82,7 @@ static void prv_msg_broker_callback(const msg_t* const message)
         {
             // Stop the FreeRTOS timer here
             ASSERT(countdown_timer_handle != NULL);
-            BaseType_t status = xTimerStop(countdown_timer_handle, 0);
-            ASSERT(status == pdPASS);
+            xTimerStop(countdown_timer_handle, 0);
         }
         break;
 
