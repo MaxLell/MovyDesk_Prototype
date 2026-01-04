@@ -20,7 +20,7 @@ static prv_mailbox_t g_mailbox = {
     .is_countdown_expired = false,
 };
 
-static u32 timer_interval_ms = 1 * 60 * 1000;
+static u32 timer_interval_ms = 51 * 60 * 1000;
 static bool g_run_sequence_once = false;
 
 // ###########################################################################
