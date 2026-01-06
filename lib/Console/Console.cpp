@@ -121,27 +121,9 @@ void console_init(void)
     // Initialize Serial communication
     Serial.begin(115200);
 
-    // u16 wait_count_ms = 0;
-    // while (!Serial)
-    // {
-    //     wait_count_ms += 10;
-    //     delay(10);
-    //     ASSERT(wait_count_ms < 5000); // Wait max 5 seconds for Serial to initialize
-    // }
-
-    /**
-     * Hands over the statically allocated cli_cfg_t struct.
-     * The Cli's memory is to be managed by the user. Internally the cli only works with a
-     * reference to this allocated memory. (There is a lot of sanity checking with ASSERTs
-     * on the state of this memory).
-     */
     cli_init(&g_cli_cfg, prv_console_put_char);
 
-    /**
-     * Register all external command bindings - these are the ones listed here in this demo
-     * There are some internal command bindings too - like for example the clear, help and reset
-     * binding.
-     */
+    // Register all commands
     for (size_t i = 0; i < CLI_GET_ARRAY_SIZE(cli_bindings); i++)
     {
         cli_register(&cli_bindings[i]);
@@ -149,6 +131,9 @@ void console_init(void)
 
     // Subscribe to timer done message
     messagebroker_subscribe(MSG_3003, prv_msg_broker_callback);
+
+    // Subscribe to test message
+    messagebroker_subscribe(MSG_0001, prv_msg_broker_callback);
 
     is_initialized = true;
 }
@@ -216,7 +201,7 @@ static int prv_cmd_system_info(int argc, char* argv[], void* context)
     cli_print("* Chip Revision: %d", ESP.getChipRevision());
     cli_print("* CPU Cores: %d", ESP.getChipCores());
 
-    cli_print("* Temperature: %.1f°C", (temperatureRead() - 32.0) * 5.0 / 9.0);
+    cli_print("* Temperature: %.1f°C", temperatureRead());
     return CLI_OK_STATUS;
 }
 
@@ -263,7 +248,7 @@ static int prv_cmd_msgbroker_can_subscribe_and_publish(int argc, char* argv[], v
     (void)context;
 
     // Subscribe to a test message
-    messagebroker_subscribe(MSG_0001, prv_msg_broker_callback);
+
     cli_print("Subscribed to MSG_0001 \n... \nNow publishing a test message. \n...");
     // Publish a test message
     msg_t test_msg;

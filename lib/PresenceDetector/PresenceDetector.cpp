@@ -23,18 +23,26 @@
 // Presence detection configuration
 #define PRESENCE_THRESHOLD        3    // Minimum number of close devices to detect presence
 #define SCAN_INTERVAL_MS          5000 // 5 seconds between scans
+#define AVERAGING_BUFFER_SIZE     12   // Number of samples for 1 minute (60s / 5s = 12)
+#define PRESENCE_CHANGE_THRESHOLD 0.5  // 50% threshold for presence state change
 
 // ###########################################################################
 // # Private Data
 // ###########################################################################
 
 static bool is_initialized = false;
+static bool scan_started = false;
 static NimBLEScan* pBLEScan = nullptr;
 static bool is_logging_enabled = false;
 static unsigned long last_scan_time = 0;
 
 // Presence detection state
 static bool presence_detected = false;
+
+// Presence averaging buffer
+static bool presence_buffer[AVERAGING_BUFFER_SIZE] = {false};
+static int buffer_index = 0;
+static int buffer_fill_count = 0; // Tracks how many samples we have
 
 // Helper structure for device info
 struct DeviceInfo
@@ -52,6 +60,9 @@ static float prv_estimate_distance(int rssi);
 static std::vector<DeviceInfo> prv_create_device_list(const NimBLEScanResults& results);
 static int prv_count_close_devices(const std::vector<DeviceInfo>& devices);
 static void prv_process_scan_results(void);
+static void prv_update_presence_buffer(bool current_presence);
+static float prv_calculate_presence_average(void);
+
 static void prv_check_and_publish_presence_state(int close_device_count);
 
 // ###########################################################################
@@ -74,8 +85,8 @@ void presencedetector_init(void)
     // Subscribe to logging control messages
     messagebroker_subscribe(MSG_0005, prv_msg_broker_callback);
 
-    // Start continuous scanning
-    pBLEScan->start(0, false, false); // 0 = continuous scan, no callback, don't restart
+    // Don't start scanning immediately - do it in run() to avoid blocking during init
+    scan_started = false;
 
     is_initialized = true;
 }
@@ -83,6 +94,15 @@ void presencedetector_init(void)
 void presencedetector_run(void)
 {
     ASSERT(is_initialized);
+
+    // Start scanning on first run
+    if (!scan_started)
+    {
+        pBLEScan->start(0, false, false); // 0 = continuous scan, no callback, don't restart
+        scan_started = true;
+        last_scan_time = millis();
+        return; // Skip first iteration to let scan stabilize
+    }
 
     // Process scan results at regular intervals
     unsigned long current_time = millis();
@@ -174,45 +194,103 @@ static int prv_count_close_devices(const std::vector<DeviceInfo>& devices)
     return close_device_count;
 }
 
+// Update the presence buffer with the current reading
+static void prv_update_presence_buffer(bool current_presence)
+{
+    presence_buffer[buffer_index] = current_presence;
+    buffer_index = (buffer_index + 1) % AVERAGING_BUFFER_SIZE;
+
+    if (buffer_fill_count < AVERAGING_BUFFER_SIZE)
+    {
+        buffer_fill_count++;
+    }
+}
+
+// Calculate the average presence over the buffer period
+static float prv_calculate_presence_average(void)
+{
+    if (buffer_fill_count == 0)
+    {
+        return 0.0f;
+    }
+
+    int presence_count = 0;
+    for (int i = 0; i < buffer_fill_count; i++)
+    {
+        if (presence_buffer[i])
+        {
+            presence_count++;
+        }
+    }
+
+    return (float)presence_count / (float)buffer_fill_count;
+}
+
 // Check presence state and publish messages
 static void prv_check_and_publish_presence_state(int close_device_count)
 {
     bool is_person_currently_present = (close_device_count >= PRESENCE_THRESHOLD);
 
-    // Update presence state and always publish
-    bool state_changed = (is_person_currently_present != presence_detected);
-    presence_detected = is_person_currently_present;
+    // Update the presence buffer with current reading
+    prv_update_presence_buffer(is_person_currently_present);
 
-    msg_t presence_msg;
-    presence_msg.data_size = 0;
-    presence_msg.data_bytes = NULL;
+    // Calculate average presence over the last minute
+    float presence_average = prv_calculate_presence_average();
 
-    if (presence_detected)
+    // Only update presence state if average is below 50%
+    bool previous_presence_detected = presence_detected;
+    if (presence_average < PRESENCE_CHANGE_THRESHOLD)
     {
-        presence_msg.msg_id = MSG_2001; // Presence Detected
-        if (is_logging_enabled)
-        {
-            Serial.print("[PresenceDetect] Person ");
-            Serial.print(state_changed ? "DETECTED" : "PRESENT");
-            Serial.print(" (");
-            Serial.print(close_device_count);
-            Serial.println(" devices)");
-        }
+        presence_detected = false;
     }
     else
     {
-        presence_msg.msg_id = MSG_2002; // No Presence Detected
-        if (is_logging_enabled)
-        {
-            Serial.print("[PresenceDetect] Person ");
-            Serial.print(state_changed ? "LOST" : "ABSENT");
-            Serial.print(" (");
-            Serial.print(close_device_count);
-            Serial.println(" devices)");
-        }
+        presence_detected = true;
     }
 
-    messagebroker_publish(&presence_msg);
+    bool state_changed = (presence_detected != previous_presence_detected);
+
+    // Only publish if state changed or if logging is enabled
+    if (state_changed || is_logging_enabled)
+    {
+        msg_t presence_msg;
+        presence_msg.data_size = 0;
+        presence_msg.data_bytes = NULL;
+
+        if (presence_detected)
+        {
+            presence_msg.msg_id = MSG_2001; // Presence Detected
+            if (is_logging_enabled)
+            {
+                Serial.print("[PresenceDetect] Person ");
+                Serial.print(state_changed ? "DETECTED" : "PRESENT");
+                Serial.print(" (avg: ");
+                Serial.print(presence_average * 100.0f);
+                Serial.print("%, current: ");
+                Serial.print(close_device_count);
+                Serial.println(" devices)");
+            }
+        }
+        else
+        {
+            presence_msg.msg_id = MSG_2002; // No Presence Detected
+            if (is_logging_enabled)
+            {
+                Serial.print("[PresenceDetect] Person ");
+                Serial.print(state_changed ? "LOST" : "ABSENT");
+                Serial.print(" (avg: ");
+                Serial.print(presence_average * 100.0f);
+                Serial.print("%, current: ");
+                Serial.print(close_device_count);
+                Serial.println(" devices)");
+            }
+        }
+
+        if (state_changed)
+        {
+            messagebroker_publish(&presence_msg);
+        }
+    }
 }
 
 // Process current scan results (non-blocking)

@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include "ApplicationControl.h"
+#include "BlinkLed.h"
 #include "Console.h"
 #include "DeskControl.h"
 #include "MessageBroker.h"
@@ -20,7 +21,7 @@ void presencedetector_task(void* parameter);
 void applicationcontrol_task(void* parameter);
 void timermanager_task(void* parameter);
 static void prv_assert_failed(const char* file, uint32_t line, const char* expr);
-static void prv_toggle_led(void);
+static void msg_broker_callback(const msg_t* const message);
 
 // ###########################################################################
 // # Task handles
@@ -35,7 +36,8 @@ TaskHandle_t timermanager_task_handle = NULL;
 // # Private Data
 // ###########################################################################
 constexpr int LED_PIN = 2;
-bool assert_was_triggered = false;
+static bool g_assert_was_triggered = false;
+static bool g_person_is_present = false;
 
 // ###########################################################################
 // # Setup and Loop
@@ -97,17 +99,30 @@ void setup()
                 &presencedetector_task_handle // Task handle
     );
 
-    // Setup LED pin
-    pinMode(LED_PIN, OUTPUT);
+    // Initialize BlinkLed module
+    blinkled_init(LED_PIN);
+
+    // Subscribe to the presense detected message
+    messagebroker_subscribe(MSG_2001, msg_broker_callback);
+    messagebroker_subscribe(MSG_2002, msg_broker_callback);
 }
 
 void loop()
 {
-    if (!assert_was_triggered)
+    if (g_assert_was_triggered)
     {
-        // Toggle LED - for a visual heartbeat
-        prv_toggle_led();
-        delay(1000);
+        return;
+    }
+
+    // Blink the LED based on presence state
+    if (g_person_is_present)
+    {
+        blinkled_toggle();
+        delay(30);
+    }
+    else // No person present
+    {
+        blinkled_disable();
     }
 }
 
@@ -206,19 +221,39 @@ void timermanager_task(void* parameter)
 
 static void prv_assert_failed(const char* file, uint32_t line, const char* expr)
 {
-    assert_was_triggered = true;
+    g_assert_was_triggered = true;
     Serial.printf("[ASSERT FAILED]: %s:%u - %s\n", file, line, expr);
     // In embedded systems, we might want to reset instead of infinite loop
+
+    // Stop all tasks
+    vTaskSuspend(console_task_handle);
+    vTaskSuspend(deskcontrol_task_handle);
+    vTaskSuspend(presencedetector_task_handle);
+    vTaskSuspend(applicationcontrol_task_handle);
+    vTaskSuspend(timermanager_task_handle);
+
     while (1)
     {
-        prv_toggle_led();
-        delay(100); // Keep watchdog happy if enabled
+        blinkled_toggle();
+        delay(700); // Keep watchdog happy if enabled
     }
 }
 
-static void prv_toggle_led(void)
+static void msg_broker_callback(const msg_t* const message)
 {
-    static bool led_state = false;
-    led_state = !led_state;
-    digitalWrite(LED_PIN, led_state ? HIGH : LOW);
+    ASSERT(message != NULL);
+
+    switch (message->msg_id)
+    {
+        case MSG_2001: // Presence Detected
+            g_person_is_present = true;
+            break;
+        case MSG_2002: // No Presence Detected
+            g_person_is_present = false;
+            break;
+        default:
+            // Unknown message ID
+            ASSERT(false);
+            break;
+    }
 }
