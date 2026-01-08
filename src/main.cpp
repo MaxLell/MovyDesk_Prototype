@@ -93,7 +93,7 @@ void setup()
     // Create presence detector task
     xTaskCreate(presencedetector_task,        // Task function
                 "PresenceDetectorTask",       // Task name
-                4096,                         // Stack size (words)
+                8192,                         // Stack size (words) - increased for BLE
                 NULL,                         // Task parameters
                 1,                            // Task priority (same as console)
                 &presencedetector_task_handle // Task handle

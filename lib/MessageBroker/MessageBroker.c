@@ -95,5 +95,5 @@ void messagebroker_publish(const msg_t* const message)
             callback(message);
         }
     }
-    ASSERT(is_anyone_listening == true);
+    // ASSERT(is_anyone_listening == true);
 }

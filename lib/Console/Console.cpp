@@ -69,6 +69,7 @@ static int prv_cmd_timer_start_countdown(int argc, char* argv[], void* context);
 
 // Application Control Commands
 static int prv_cmd_appctrl_set_timer_interval(int argc, char* argv[], void* context);
+static int prv_cmd_appctrl_get_timer_interval(int argc, char* argv[], void* context);
 
 // ###########################################################################
 // # Private Variables
@@ -105,8 +106,10 @@ static cli_binding_t cli_bindings[] = {
     {"test_timer", prv_cmd_timer_start_countdown, NULL, "Start countdown timer: test_timer <seconds>"},
 
     // Application Control Commands
-    {"appctrl_set_new_timer", prv_cmd_appctrl_set_timer_interval, NULL,
-     "Sets a new timer interval: appctrl_set_new_timer <minutes>"},
+    {"appctrl_set_time", prv_cmd_appctrl_set_timer_interval, NULL,
+     "Sets a new timer interval: appctrl_set_time <minutes>"},
+    {"appctrl_get_time", prv_cmd_appctrl_get_timer_interval, NULL,
+     "Gets the current timer interval: appctrl_get_time"},
 
 };
 
@@ -457,5 +460,21 @@ static int prv_cmd_appctrl_set_timer_interval(int argc, char* argv[], void* cont
 
     messagebroker_publish(&timer_msg);
     cli_print("Timer interval set to %d minutes", minutes);
+    return CLI_OK_STATUS;
+}
+
+static int prv_cmd_appctrl_get_timer_interval(int argc, char* argv[], void* context)
+{
+    (void)argc;
+    (void)argv;
+    (void)context;
+
+    // Publish message to ApplicationControl requesting current timer interval
+    msg_t get_timer_msg;
+    get_timer_msg.msg_id = MSG_4002; // Get Timer Interval
+    get_timer_msg.data_size = 0;
+    get_timer_msg.data_bytes = NULL;
+
+    messagebroker_publish(&get_timer_msg);
     return CLI_OK_STATUS;
 }

@@ -19,8 +19,8 @@ static prv_mailbox_t g_mailbox = {
     .is_person_present = false,
     .is_countdown_expired = false,
 };
-
-static u32 timer_interval_ms = 60 * 60 * 1000; // 60 minutes default
+#define DEFAULT_MINUTES 2
+static u32 timer_interval_ms = DEFAULT_MINUTES * 60 * 1000; // 20 minutes default
 static bool g_run_sequence_once = false;
 
 // ###########################################################################
@@ -50,6 +50,7 @@ void applicationcontrol_init(void)
     messagebroker_subscribe(MSG_3003, prv_msg_broker_callback); // Countdown finished
     messagebroker_subscribe(MSG_0003, prv_msg_broker_callback); // Set Logging State
     messagebroker_subscribe(MSG_4001, prv_msg_broker_callback); // Set Timer Interval
+    messagebroker_subscribe(MSG_4002, prv_msg_broker_callback); // Get Timer Interval
 }
 
 void applicationcontrol_run(void)
@@ -161,6 +162,11 @@ static void prv_msg_broker_callback(const msg_t* const message)
                 g_mailbox.is_countdown_expired = false;
                 g_run_sequence_once = false;
             }
+            break;
+        case MSG_4002: // Get Timer Interval
+            Serial.print("[AppCtrl] Current timer interval: ");
+            Serial.print(timer_interval_ms / 60000);
+            Serial.println(" minutes");
             break;
         default:
             // Unknown message ID

@@ -13,12 +13,12 @@
 // ###########################################################################
 
 // ===== UART Pins Configuration =====
-#define UART_TX_PIN          21
-#define UART_RX_PIN          20
+#define UART_TX_PIN          D6
+#define UART_RX_PIN          D7
 #define SERIAL_INTERFACE     Serial1
 
 // Optional display pin
-#define WAKEUP_PIN           15
+#define WAKEUP_PIN           D9
 
 // ===== Protocol Definitions =====
 #define FRAME_LENGTH         8
@@ -130,11 +130,6 @@ void deskcontrol_run(void)
             // Note: We don't print "REQ detected (not armed)" to avoid spam
         }
     }
-
-    // Toggle the WAKEUP_PIN
-    static bool toggle_state = false;
-    digitalWrite(WAKEUP_PIN, toggle_state ? HIGH : LOW);
-    toggle_state = !toggle_state;
 }
 
 // ###########################################################################
