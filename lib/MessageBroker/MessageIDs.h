@@ -33,6 +33,7 @@ typedef enum
     // Application Control Configuration Messages
     MSG_4001, // Set Timer Interval (in minutes)
     MSG_4002, // Get Timer Interval (query current interval)
+    MSG_4003, // Get Elapsed Timer Time (query how long timer has been running)
 
     E_TOPIC_LAST_TOPIC // Last Topic - DO NOT USE (Only for boundary checks)
 } msg_id_e;

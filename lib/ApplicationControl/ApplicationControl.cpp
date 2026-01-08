@@ -22,6 +22,7 @@ static prv_mailbox_t g_mailbox = {
 #define DEFAULT_MINUTES 2
 static u32 timer_interval_ms = DEFAULT_MINUTES * 60 * 1000; // 20 minutes default
 static bool g_run_sequence_once = false;
+static u32 timer_start_timestamp_ms = 0; // Timestamp when countdown timer started
 
 // ###########################################################################
 // # Private function declarations
@@ -51,6 +52,7 @@ void applicationcontrol_init(void)
     messagebroker_subscribe(MSG_0003, prv_msg_broker_callback); // Set Logging State
     messagebroker_subscribe(MSG_4001, prv_msg_broker_callback); // Set Timer Interval
     messagebroker_subscribe(MSG_4002, prv_msg_broker_callback); // Get Timer Interval
+    messagebroker_subscribe(MSG_4003, prv_msg_broker_callback); // Get Elapsed Timer Time
 }
 
 void applicationcontrol_run(void)
@@ -71,6 +73,10 @@ void applicationcontrol_run(void)
             timer_msg.data_size = sizeof(u32);
             timer_msg.data_bytes = (u8*)&timer_interval_ms;
             messagebroker_publish(&timer_msg);
+
+            // Store timestamp when timer starts
+            timer_start_timestamp_ms = millis();
+
             g_run_sequence_once = true;
         }
 
@@ -95,6 +101,9 @@ void applicationcontrol_run(void)
             }
 
             prv_reset_sequence();
+
+            // Reset timer timestamp since the cycle is complete
+            timer_start_timestamp_ms = 0;
         }
     }
     else
@@ -130,6 +139,8 @@ static void prv_msg_broker_callback(const msg_t* const message)
             break;
         case MSG_2002: // No Presence Detected
             g_mailbox.is_person_present = false;
+            // Reset timer timestamp when presence is lost
+            timer_start_timestamp_ms = 0;
             if (prv_logging_enabled)
             {
                 Serial.println("[AppCtrl] Event: No Presence Detected");
@@ -158,15 +169,37 @@ static void prv_msg_broker_callback(const msg_t* const message)
                 Serial.print(timer_interval_ms / 60000);
                 Serial.println(" minutes");
 
-                // reset the sequence
+                // reset the sequence and timer timestamp
                 g_mailbox.is_countdown_expired = false;
                 g_run_sequence_once = false;
+                timer_start_timestamp_ms = 0;
             }
             break;
         case MSG_4002: // Get Timer Interval
             Serial.print("[AppCtrl] Current timer interval: ");
             Serial.print(timer_interval_ms / 60000);
             Serial.println(" minutes");
+            break;
+        case MSG_4003: // Get Elapsed Time Since Timer Started
+            if (timer_start_timestamp_ms == 0)
+            {
+                Serial.println("[AppCtrl] Timer is not currently running");
+            }
+            else
+            {
+                u32 elapsed_ms = millis() - timer_start_timestamp_ms;
+                u32 elapsed_seconds = elapsed_ms / 1000;
+                u32 elapsed_minutes = elapsed_seconds / 60;
+                u32 remaining_seconds = elapsed_seconds % 60;
+
+                Serial.print("[AppCtrl] Timer running for: ");
+                Serial.print(elapsed_minutes);
+                Serial.print(" minutes, ");
+                Serial.print(remaining_seconds);
+                Serial.print(" seconds (of ");
+                Serial.print(timer_interval_ms / 60000);
+                Serial.println(" minutes total)");
+            }
             break;
         default:
             // Unknown message ID

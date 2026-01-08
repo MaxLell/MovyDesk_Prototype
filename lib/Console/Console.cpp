@@ -70,6 +70,7 @@ static int prv_cmd_timer_start_countdown(int argc, char* argv[], void* context);
 // Application Control Commands
 static int prv_cmd_appctrl_set_timer_interval(int argc, char* argv[], void* context);
 static int prv_cmd_appctrl_get_timer_interval(int argc, char* argv[], void* context);
+static int prv_cmd_appctrl_get_elapsed_time(int argc, char* argv[], void* context);
 
 // ###########################################################################
 // # Private Variables
@@ -108,8 +109,9 @@ static cli_binding_t cli_bindings[] = {
     // Application Control Commands
     {"appctrl_set_time", prv_cmd_appctrl_set_timer_interval, NULL,
      "Sets a new timer interval: appctrl_set_time <minutes>"},
-    {"appctrl_get_time", prv_cmd_appctrl_get_timer_interval, NULL,
-     "Gets the current timer interval: appctrl_get_time"},
+    {"appctrl_get_time", prv_cmd_appctrl_get_timer_interval, NULL, "Gets the current timer interval: appctrl_get_time"},
+    {"appctrl_elapsed_time", prv_cmd_appctrl_get_elapsed_time, NULL,
+     "Gets elapsed timer countdown time: appctrl_elapsed_time"},
 
 };
 
@@ -476,5 +478,21 @@ static int prv_cmd_appctrl_get_timer_interval(int argc, char* argv[], void* cont
     get_timer_msg.data_bytes = NULL;
 
     messagebroker_publish(&get_timer_msg);
+    return CLI_OK_STATUS;
+}
+
+static int prv_cmd_appctrl_get_elapsed_time(int argc, char* argv[], void* context)
+{
+    (void)argc;
+    (void)argv;
+    (void)context;
+
+    // Publish message to ApplicationControl requesting elapsed time since last move
+    msg_t get_elapsed_msg;
+    get_elapsed_msg.msg_id = MSG_4003; // Get Elapsed Time Since Last Move
+    get_elapsed_msg.data_size = 0;
+    get_elapsed_msg.data_bytes = NULL;
+
+    messagebroker_publish(&get_elapsed_msg);
     return CLI_OK_STATUS;
 }
