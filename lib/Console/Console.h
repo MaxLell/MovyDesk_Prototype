@@ -1,14 +1,20 @@
 #ifndef CONSOLE_H
 #define CONSOLE_H
 
+// FreeRTOS includes
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+
 #ifdef __cplusplus
 extern "C"
 {
 #endif /* __cplusplus */
 
-    void console_init(void);
-
-    void console_run(void);
+    /**
+     * @brief Creates and starts the Console task
+     * @return Task handle for the created task
+     */
+    TaskHandle_t console_create_task(void);
 
 #ifdef __cplusplus
 }

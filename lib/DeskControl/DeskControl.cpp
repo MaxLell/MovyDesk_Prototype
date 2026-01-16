@@ -41,6 +41,9 @@ const uint8_t CMD_PRESET4[FRAME_LENGTH] = {0x9B, 0x06, 0x02, 0x00, 0x01, 0xAC, 0
 // ###########################################################################
 // # Private function declarations
 // ###########################################################################
+static void prv_deskcontrol_task(void* parameter);
+static void prv_deskcontrol_init(void);
+static void prv_deskcontrol_run(void);
 static void prv_msg_broker_callback(const msg_t* const message);
 static void prv_set_frame(const uint8_t* f);
 static void prv_disarm(void);
@@ -75,7 +78,43 @@ static desk_command_e g_last_toggle_position = DESK_CMD_PRESET1;
 // # Public function implementations
 // ###########################################################################
 
-void deskcontrol_init(void)
+TaskHandle_t deskcontrol_create_task(void)
+{
+    TaskHandle_t task_handle = NULL;
+
+    xTaskCreate(prv_deskcontrol_task, // Task function
+                "DeskControlTask",    // Task name
+                4096,                 // Stack size (words)
+                NULL,                 // Task parameters
+                2,                    // Task priority
+                &task_handle          // Task handle
+    );
+
+    return task_handle;
+}
+
+// ###########################################################################
+// # Private function implementations
+// ###########################################################################
+
+static void prv_deskcontrol_task(void* parameter)
+{
+    (void)parameter; // Unused parameter
+
+    // Initialize desk control
+    prv_deskcontrol_init();
+
+    // Task main loop
+    while (1)
+    {
+        // Run the desk control processing
+        prv_deskcontrol_run();
+
+        delay(5);
+    }
+}
+
+static void prv_deskcontrol_init(void)
 {
     // Initialize UART for desk communication
     pinMode(WAKEUP_PIN, OUTPUT);
@@ -97,7 +136,7 @@ void deskcontrol_init(void)
     messagebroker_subscribe(MSG_1000, prv_msg_broker_callback); // desk command
 }
 
-void deskcontrol_run(void)
+static void prv_deskcontrol_run(void)
 {
     // Process incoming UART data for request detection
     while (SERIAL_INTERFACE.available())

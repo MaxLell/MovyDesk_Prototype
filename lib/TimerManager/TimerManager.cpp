@@ -12,6 +12,9 @@
 // ###########################################################################
 // # Private function declarations
 // ###########################################################################
+static void prv_timermanager_task(void* parameter);
+static void prv_timermanager_init(void);
+static void prv_timermanager_run(void);
 static void prv_msg_broker_callback(const msg_t* const message);
 static void prv_timer_expired_callback(TimerHandle_t xTimer);
 
@@ -25,7 +28,43 @@ static TimerHandle_t countdown_timer_handle = NULL;
 // # Public function implementations
 // ###########################################################################
 
-void timermanager_init(void)
+TaskHandle_t timermanager_create_task(void)
+{
+    TaskHandle_t task_handle = NULL;
+
+    xTaskCreate(prv_timermanager_task, // Task function
+                "TimerManagerTask",    // Task name
+                4096,                  // Stack size (words)
+                NULL,                  // Task parameters
+                2,                     // Task priority
+                &task_handle           // Task handle
+    );
+
+    return task_handle;
+}
+
+// ###########################################################################
+// # Private function implementations
+// ###########################################################################
+
+static void prv_timermanager_task(void* parameter)
+{
+    (void)parameter; // Unused parameter
+
+    // Initialize timer manager
+    prv_timermanager_init();
+
+    // Task main loop
+    while (1)
+    {
+        // Run the timer manager processing
+        prv_timermanager_run();
+
+        delay(10000000);
+    }
+}
+
+static void prv_timermanager_init(void)
 {
     // Subscribe to relevant messages
     messagebroker_subscribe(MSG_3001, prv_msg_broker_callback); // Start Countdown with Time Stamp
@@ -42,7 +81,7 @@ void timermanager_init(void)
     ASSERT(countdown_timer_handle != NULL); // Not enough memory to create timer
 }
 
-void timermanager_run(void)
+static void prv_timermanager_run(void)
 {
     // Nothing to do in the run loop for now
 }

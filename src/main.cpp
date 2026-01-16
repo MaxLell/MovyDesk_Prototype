@@ -15,11 +15,6 @@
 // ###########################################################################
 // # Private function declarations
 // ###########################################################################
-void console_task(void* parameter);
-void deskcontrol_task(void* parameter);
-void presencedetector_task(void* parameter);
-void applicationcontrol_task(void* parameter);
-void timermanager_task(void* parameter);
 static void prv_assert_failed(const char* file, uint32_t line, const char* expr);
 static void msg_broker_callback(const msg_t* const message);
 
@@ -50,54 +45,17 @@ void setup()
 
     messagebroker_init();
 
-    // Create console task
-    xTaskCreate(console_task,        // Task function
-                "ConsoleTask",       // Task name
-                4096,                // Stack size (words)
-                NULL,                // Task parameters
-                1,                   // Task priority (0 = lowest, configMAX_PRIORITIES - 1 = highest)
-                &console_task_handle // Task handle
-    );
-
-    // Create desk control task
-    xTaskCreate(deskcontrol_task,        // Task function
-                "DeskControlTask",       // Task name
-                4096,                    // Stack size (words)
-                NULL,                    // Task parameters
-                2,                       // Task priority (higher than console)
-                &deskcontrol_task_handle // Task handle
-    );
-
-    // Create application control task
-    xTaskCreate(applicationcontrol_task,        // Task function
-                "ApplicationControlTask",       // Task name
-                4096,                           // Stack size (words)
-                NULL,                           // Task parameters
-                2,                              // Task priority (higher than console)
-                &applicationcontrol_task_handle // Task handle
-    );
-
-    // Create timer manager task
-    xTaskCreate(timermanager_task,        // Task function
-                "TimerManagerTask",       // Task name
-                4096,                     // Stack size (words)
-                NULL,                     // Task parameters
-                2,                        // Task priority (higher than console)
-                &timermanager_task_handle // Task handle
-    );
+    // Create all tasks using module-specific functions
+    console_task_handle = console_create_task();
+    deskcontrol_task_handle = deskcontrol_create_task();
+    applicationcontrol_task_handle = applicationcontrol_create_task();
+    timermanager_task_handle = timermanager_create_task();
 
     // Stabilize the power on the system to avoid brownout issues on ESP32
     // The presence detector task requires more power during bluetooth scanning
     delay(1000);
 
-    // Create presence detector task
-    xTaskCreate(presencedetector_task,        // Task function
-                "PresenceDetectorTask",       // Task name
-                8192,                         // Stack size (words) - increased for BLE
-                NULL,                         // Task parameters
-                1,                            // Task priority (same as console)
-                &presencedetector_task_handle // Task handle
-    );
+    presencedetector_task_handle = presencedetector_create_task();
 
     // Initialize BlinkLed module
     blinkled_init(LED_PIN);
@@ -123,95 +81,6 @@ void loop()
     else // No person present
     {
         blinkled_disable();
-    }
-}
-
-// ###########################################################################
-// # Task implementations
-// ###########################################################################
-
-void console_task(void* parameter)
-{
-    (void)parameter; // Unused parameter
-
-    // Initialize console
-    console_init();
-
-    // Task main loop
-    while (1)
-    {
-        // Run the console processing
-        console_run();
-
-        delay(5);
-    }
-}
-
-void deskcontrol_task(void* parameter)
-{
-    (void)parameter; // Unused parameter
-
-    // Initialize desk control
-    deskcontrol_init();
-
-    // Task main loop
-    while (1)
-    {
-        // Run the desk control processing
-        deskcontrol_run();
-
-        delay(5);
-    }
-}
-
-void presencedetector_task(void* parameter)
-{
-    (void)parameter; // Unused parameter
-
-    // Initialize presence detector
-    presencedetector_init();
-
-    // Task main loop
-    while (1)
-    {
-        // Run the presence detector processing
-        presencedetector_run();
-
-        delay(5);
-    }
-}
-
-void applicationcontrol_task(void* parameter)
-{
-    (void)parameter; // Unused parameter
-
-    // Initialize application control
-    applicationcontrol_init();
-
-    // Task main loop
-    while (1)
-    {
-        // Run the application control processing
-        applicationcontrol_run();
-
-        delay(5);
-    }
-}
-
-void timermanager_task(void* parameter)
-{
-    (void)parameter; // Unused parameter
-
-    // Initialize timer manager
-    timermanager_init();
-
-    // Task main loop
-    while (1)
-    {
-        // Run the timer manager processing
-        timermanager_run();
-
-        delay(10000000);
     }
 }
 

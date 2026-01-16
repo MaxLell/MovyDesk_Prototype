@@ -21,7 +21,7 @@
 #define DISTANCE_CLOSE_DEVICE_MAX 4.0 // Maximum distance to consider a device "close" (4 meters)
 
 // Presence detection configuration
-#define PRESENCE_THRESHOLD        3    // Minimum number of close devices to detect presence
+static int presence_threshold = 3;     // Minimum number of close devices to detect presence (configurable)
 #define SCAN_INTERVAL_MS          5000 // 5 seconds between scans
 #define AVERAGING_BUFFER_SIZE     12   // Number of samples for 1 minute (60s / 5s = 12)
 #define PRESENCE_CHANGE_THRESHOLD 0.5  // 50% threshold for presence state change
@@ -55,6 +55,9 @@ struct DeviceInfo
 // # Private Function Declarations
 // ###########################################################################
 
+static void prv_presencedetector_task(void* parameter);
+static void prv_presencedetector_init(void);
+static void prv_presencedetector_run(void);
 static void prv_msg_broker_callback(const msg_t* const message);
 static float prv_estimate_distance(int rssi);
 static std::vector<DeviceInfo> prv_create_device_list(const NimBLEScanResults& results);
@@ -69,7 +72,43 @@ static void prv_check_and_publish_presence_state(int close_device_count);
 // # Public Function Implementations
 // ###########################################################################
 
-void presencedetector_init(void)
+TaskHandle_t presencedetector_create_task(void)
+{
+    TaskHandle_t task_handle = NULL;
+
+    xTaskCreate(prv_presencedetector_task, // Task function
+                "PresenceDetectorTask",    // Task name
+                8192,                      // Stack size (words) - increased for BLE
+                NULL,                      // Task parameters
+                1,                         // Task priority
+                &task_handle               // Task handle
+    );
+
+    return task_handle;
+}
+
+// ###########################################################################
+// # Private Function Implementations
+// ###########################################################################
+
+static void prv_presencedetector_task(void* parameter)
+{
+    (void)parameter; // Unused parameter
+
+    // Initialize presence detector
+    prv_presencedetector_init();
+
+    // Task main loop
+    while (1)
+    {
+        // Run the presence detector processing
+        prv_presencedetector_run();
+
+        delay(5);
+    }
+}
+
+static void prv_presencedetector_init(void)
 {
     ASSERT(!is_initialized);
 
@@ -85,13 +124,16 @@ void presencedetector_init(void)
     // Subscribe to logging control messages
     messagebroker_subscribe(MSG_0005, prv_msg_broker_callback);
 
+    // Subscribe to presence threshold setting message
+    messagebroker_subscribe(MSG_2003, prv_msg_broker_callback);
+
     // Don't start scanning immediately - do it in run() to avoid blocking during init
     scan_started = false;
 
     is_initialized = true;
 }
 
-void presencedetector_run(void)
+static void prv_presencedetector_run(void)
 {
     ASSERT(is_initialized);
 
@@ -129,6 +171,23 @@ static void prv_msg_broker_callback(const msg_t* const message)
                 is_logging_enabled = *(bool*)(message->data_bytes);
                 Serial.print("[PresenceDetect] Logging ");
                 Serial.println(is_logging_enabled ? "enabled" : "disabled");
+            }
+            break;
+        case MSG_2003: // Set Presence Threshold
+            if (message->data_size == sizeof(int))
+            {
+                int new_threshold = *(int*)(message->data_bytes);
+                if (new_threshold > 0)
+                {
+                    presence_threshold = new_threshold;
+                    Serial.print("[PresenceDetect] Threshold set to ");
+                    Serial.print(presence_threshold);
+                    Serial.println(" devices");
+                }
+                else
+                {
+                    Serial.println("[PresenceDetect] Invalid threshold value (must be > 0)");
+                }
             }
             break;
         default:
@@ -229,7 +288,7 @@ static float prv_calculate_presence_average(void)
 // Check presence state and publish messages
 static void prv_check_and_publish_presence_state(int close_device_count)
 {
-    bool is_person_currently_present = (close_device_count >= PRESENCE_THRESHOLD);
+    bool is_person_currently_present = (close_device_count >= presence_threshold);
 
     // Update the presence buffer with current reading
     prv_update_presence_buffer(is_person_currently_present);

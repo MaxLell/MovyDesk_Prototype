@@ -44,6 +44,9 @@
 // ###########################################################################
 // # Private function declarations
 // ###########################################################################
+static void prv_console_task(void* parameter);
+static void prv_console_init(void);
+static void prv_console_run(void);
 static int prv_console_put_char(char in_char);
 static char prv_console_get_char(void);
 
@@ -64,6 +67,7 @@ static int prv_cmd_log_control(int argc, char* argv[], void* context);
 // Presence Detector Test Commands
 static int prv_cmd_pd_start_logging(int argc, char* argv[], void* context);
 static int prv_cmd_pd_stop_logging(int argc, char* argv[], void* context);
+static int prv_cmd_pd_set_threshold(int argc, char* argv[], void* context);
 
 // Timer Manager Test Commands
 static int prv_cmd_timer_start_countdown(int argc, char* argv[], void* context);
@@ -104,6 +108,9 @@ static cli_binding_t cli_bindings[] = {
     // Desk Control Commands
     {"move_desk", prv_cmd_deskcontrol_move_command, NULL, "Move desk: move_desk <up|down|p1|p2|p3|p4|wake|memory>"},
 
+    // Presence Detector Commands
+    {"pd_set_threshold", prv_cmd_pd_set_threshold, NULL, "Set presence threshold: pd_set_threshold <num_devices>"},
+
     // Timer Manager Commands
     {"test_timer", prv_cmd_timer_start_countdown, NULL, "Start countdown timer: test_timer <seconds>"},
 
@@ -120,7 +127,43 @@ static cli_binding_t cli_bindings[] = {
 // # Public function implementations
 // ###########################################################################
 
-void console_init(void)
+TaskHandle_t console_create_task(void)
+{
+    TaskHandle_t task_handle = NULL;
+
+    xTaskCreate(prv_console_task, // Task function
+                "ConsoleTask",    // Task name
+                4096,             // Stack size (words)
+                NULL,             // Task parameters
+                1,                // Task priority
+                &task_handle      // Task handle
+    );
+
+    return task_handle;
+}
+
+// ###########################################################################
+// # Private function implementations
+// ###########################################################################
+
+static void prv_console_task(void* parameter)
+{
+    (void)parameter; // Unused parameter
+
+    // Initialize console
+    prv_console_init();
+
+    // Task main loop
+    while (1)
+    {
+        // Run the console processing
+        prv_console_run();
+
+        delay(5);
+    }
+}
+
+static void prv_console_init(void)
 {
     ASSERT(!is_initialized);
 
@@ -144,7 +187,7 @@ void console_init(void)
     is_initialized = true;
 }
 
-void console_run(void)
+static void prv_console_run(void)
 {
     ASSERT(is_initialized);
 
@@ -431,6 +474,37 @@ static int prv_cmd_timer_start_countdown(int argc, char* argv[], void* context)
 
     messagebroker_publish(&timer_msg);
     cli_print("Starting %d second countdown timer...", seconds);
+    return CLI_OK_STATUS;
+}
+
+// Presence Detector Commands
+static int prv_cmd_pd_set_threshold(int argc, char* argv[], void* context)
+{
+    (void)context;
+
+    if (argc != 2)
+    {
+        cli_print("Usage: pd_set_threshold <num_devices>");
+        return CLI_FAIL_STATUS;
+    }
+
+    // Parse the threshold argument
+    static int threshold = 0; // Static to persist after function returns
+    threshold = atoi(argv[1]);
+    if (threshold <= 0)
+    {
+        cli_print("Error: threshold must be a positive number");
+        return CLI_FAIL_STATUS;
+    }
+
+    // Publish message to PresenceDetector
+    msg_t threshold_msg;
+    threshold_msg.msg_id = MSG_2003; // Set Presence Threshold
+    threshold_msg.data_size = sizeof(int);
+    threshold_msg.data_bytes = (u8*)&threshold;
+
+    messagebroker_publish(&threshold_msg);
+    cli_print("Presence threshold set to %d devices", threshold);
     return CLI_OK_STATUS;
 }
 

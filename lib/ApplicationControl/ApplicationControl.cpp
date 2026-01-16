@@ -27,6 +27,9 @@ static u32 timer_start_timestamp_ms = 0; // Timestamp when countdown timer start
 // ###########################################################################
 // # Private function declarations
 // ###########################################################################
+static void prv_applicationcontrol_task(void* parameter);
+static void prv_applicationcontrol_init(void);
+static void prv_applicationcontrol_run(void);
 static void prv_msg_broker_callback(const msg_t* const message);
 static void prv_reset_sequence(void);
 
@@ -43,7 +46,43 @@ static bool prv_logging_enabled = false;
 // # Public function implementations
 // ###########################################################################
 
-void applicationcontrol_init(void)
+TaskHandle_t applicationcontrol_create_task(void)
+{
+    TaskHandle_t task_handle = NULL;
+
+    xTaskCreate(prv_applicationcontrol_task, // Task function
+                "ApplicationControlTask",    // Task name
+                4096,                        // Stack size (words)
+                NULL,                        // Task parameters
+                2,                           // Task priority
+                &task_handle                 // Task handle
+    );
+
+    return task_handle;
+}
+
+// ###########################################################################
+// # Private function implementations
+// ###########################################################################
+
+static void prv_applicationcontrol_task(void* parameter)
+{
+    (void)parameter; // Unused parameter
+
+    // Initialize application control
+    prv_applicationcontrol_init();
+
+    // Task main loop
+    while (1)
+    {
+        // Run the application control processing
+        prv_applicationcontrol_run();
+
+        delay(5);
+    }
+}
+
+static void prv_applicationcontrol_init(void)
 {
     // Subscribe to 2001, 2002, 3003
     messagebroker_subscribe(MSG_2001, prv_msg_broker_callback); // Presence Detected
@@ -55,7 +94,7 @@ void applicationcontrol_init(void)
     messagebroker_subscribe(MSG_4003, prv_msg_broker_callback); // Get Elapsed Timer Time
 }
 
-void applicationcontrol_run(void)
+static void prv_applicationcontrol_run(void)
 {
     if (g_mailbox.is_person_present)
     {
