@@ -35,7 +35,7 @@ TaskHandle_t timermanager_task_handle = NULL;
 // ###########################################################################
 // # Private Data
 // ###########################################################################
-constexpr int LED_PIN = 2;
+constexpr int LED_PIN = 15;
 static bool g_assert_was_triggered = false;
 static bool g_person_is_present = false;
 
@@ -118,7 +118,7 @@ void loop()
     if (g_person_is_present)
     {
         blinkled_toggle();
-        delay(30);
+        delay(50);
     }
     else // No person present
     {
