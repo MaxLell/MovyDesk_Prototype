@@ -68,6 +68,7 @@ static int prv_cmd_log_control(int argc, char* argv[], void* context);
 static int prv_cmd_pd_start_logging(int argc, char* argv[], void* context);
 static int prv_cmd_pd_stop_logging(int argc, char* argv[], void* context);
 static int prv_cmd_pd_set_threshold(int argc, char* argv[], void* context);
+static int prv_cmd_pd_get_threshold(int argc, char* argv[], void* context);
 
 // Timer Manager Test Commands
 static int prv_cmd_timer_start_countdown(int argc, char* argv[], void* context);
@@ -111,6 +112,7 @@ static cli_binding_t cli_bindings[] = {
     // Presence Detector Commands
     {"presence_set_threshold", prv_cmd_pd_set_threshold, NULL,
      "Set presence threshold: presence_set_threshold <num_devices>"},
+    {"presence_get_threshold", prv_cmd_pd_get_threshold, NULL, "Get current presence threshold"},
 
     // Timer Manager Commands
     {"test_timer", prv_cmd_timer_start_countdown, NULL, "Start countdown timer: test_timer <seconds>"},
@@ -506,6 +508,22 @@ static int prv_cmd_pd_set_threshold(int argc, char* argv[], void* context)
 
     messagebroker_publish(&threshold_msg);
     cli_print("Presence threshold set to %d devices", threshold);
+    return CLI_OK_STATUS;
+}
+
+static int prv_cmd_pd_get_threshold(int argc, char* argv[], void* context)
+{
+    (void)argc;
+    (void)argv;
+    (void)context;
+
+    // Publish message to PresenceDetector requesting current threshold
+    msg_t get_threshold_msg;
+    get_threshold_msg.msg_id = MSG_2004; // Get Presence Threshold
+    get_threshold_msg.data_size = 0;
+    get_threshold_msg.data_bytes = NULL;
+
+    messagebroker_publish(&get_threshold_msg);
     return CLI_OK_STATUS;
 }
 

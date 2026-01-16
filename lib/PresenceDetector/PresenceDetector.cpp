@@ -136,6 +136,9 @@ static void prv_presencedetector_init(void)
     // Subscribe to presence threshold setting message
     messagebroker_subscribe(MSG_2003, prv_msg_broker_callback);
 
+    // Subscribe to presence threshold query message
+    messagebroker_subscribe(MSG_2004, prv_msg_broker_callback);
+
     // Don't start scanning immediately - do it in run() to avoid blocking during init
     scan_started = false;
 
@@ -199,6 +202,11 @@ static void prv_msg_broker_callback(const msg_t* const message)
                     Serial.println("[PresenceDetect] Invalid threshold value (must be > 0)");
                 }
             }
+            break;
+        case MSG_2004: // Get Presence Threshold
+            Serial.print("[PresenceDetect] Current threshold: ");
+            Serial.print(presence_threshold);
+            Serial.println(" devices");
             break;
         default:
             // Unknown message ID

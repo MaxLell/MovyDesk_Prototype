@@ -25,6 +25,7 @@ typedef enum
     MSG_2001, // Presence Detected
     MSG_2002, // No Presence Detected
     MSG_2003, // Set Presence Threshold (number of close devices)
+    MSG_2004, // Get Presence Threshold (query current threshold)
 
     // Messages for the Countdown Timer
     MSG_3001, // Start Countdown with Time Stamp
