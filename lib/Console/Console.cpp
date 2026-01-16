@@ -97,19 +97,20 @@ static cli_cfg_t g_cli_cfg = {0};
 static cli_binding_t cli_bindings[] = {
     // System Commands
     {"system_info", prv_cmd_system_info, NULL, "Show system information"},
-    {"restart", prv_cmd_reset_system, NULL, "Hard reset the system"},
+    {"system_restart", prv_cmd_reset_system, NULL, "Hard reset the system"},
 
     // Message Broker Test Commands
     {"msgbroker_test", prv_cmd_msgbroker_can_subscribe_and_publish, NULL, "Test Message Broker subscribe and publish"},
 
     // Logging Commands
-    {"log", prv_cmd_log_control, NULL, "Control module logging: log <on|off> <appctrl|deskctrl|presence>"},
+    {"log", prv_cmd_log_control, NULL, "Control module logging: log <on|off> <appctrl|desk|presence>"},
 
     // Desk Control Commands
-    {"move_desk", prv_cmd_deskcontrol_move_command, NULL, "Move desk: move_desk <up|down|p1|p2|p3|p4|wake|memory>"},
+    {"desk_move", prv_cmd_deskcontrol_move_command, NULL, "Move desk: desk_move <up|down|p1|p2|p3|p4|wake|memory>"},
 
     // Presence Detector Commands
-    {"pd_set_threshold", prv_cmd_pd_set_threshold, NULL, "Set presence threshold: pd_set_threshold <num_devices>"},
+    {"presence_set_threshold", prv_cmd_pd_set_threshold, NULL,
+     "Set presence threshold: presence_set_threshold <num_devices>"},
 
     // Timer Manager Commands
     {"test_timer", prv_cmd_timer_start_countdown, NULL, "Start countdown timer: test_timer <seconds>"},
@@ -418,7 +419,7 @@ static int prv_cmd_log_control(int argc, char* argv[], void* context)
         msg_id = MSG_0003;
         module_name = "ApplicationControl";
     }
-    else if (strcmp(argv[2], "deskctrl") == 0)
+    else if (strcmp(argv[2], "desk") == 0)
     {
         msg_id = MSG_0004;
         module_name = "DeskControl";
@@ -430,7 +431,7 @@ static int prv_cmd_log_control(int argc, char* argv[], void* context)
     }
     else
     {
-        cli_print("Error: Unknown module. Use 'appctrl', 'deskctrl', or 'presence'");
+        cli_print("Error: Unknown module. Use 'appctrl', 'desk', or 'presence'");
         return CLI_FAIL_STATUS;
     }
 
