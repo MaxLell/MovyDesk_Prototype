@@ -20,6 +20,7 @@ typedef enum
     // Messages for Desk Control
     MSG_1000, // Move Desk to up, down, p1, p2, p3, p4, wake, memory
     MSG_1001, // Toggle Desk Position
+    MSG_1002, // Get Desk Height (query current height)
 
     // Messages for the Presence Detector
     MSG_2001, // Presence Detected

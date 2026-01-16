@@ -24,6 +24,8 @@
 #define FRAME_LENGTH         8
 #define REQUEST_FRAME_LENGTH 6
 #define DEFAULT_REPEATS      5
+#define HEIGHT_MSG_ID        0x12
+#define MAX_MSG_LENGTH       32
 
 // Request frame (incoming from desk)
 const uint8_t REQ_FRAME[REQUEST_FRAME_LENGTH] = {0x9B, 0x04, 0x11, 0x7C, 0xC3, 0x9D};
@@ -52,6 +54,9 @@ static void prv_push_req_byte(uint8_t byte);
 static bool prv_req_match(void);
 static const uint8_t* prv_get_command_frame(desk_command_e cmd);
 static void prv_execute_command(desk_command_e cmd);
+static int prv_decode_digit(uint8_t byte);
+static bool prv_has_decimal_point(uint8_t byte);
+static void prv_parse_height_message(const uint8_t* msg, size_t len);
 
 // ###########################################################################
 // # Private variables
@@ -73,6 +78,13 @@ static bool req_filled = false;
 
 // Last command executed
 static desk_command_e g_last_toggle_position = DESK_CMD_PRESET1;
+
+// Height tracking
+static float g_current_height_cm = 0.0f;
+static bool g_height_valid = false;
+static uint8_t g_msg_buffer[MAX_MSG_LENGTH];
+static size_t g_msg_buffer_idx = 0;
+static bool g_in_message = false;
 
 // ###########################################################################
 // # Public function implementations
@@ -131,17 +143,71 @@ static void prv_deskcontrol_init(void)
     memset(req_window, 0, sizeof(req_window));
     memset(current_frame, 0, sizeof(current_frame));
 
+    // Initialize height tracking
+    g_current_height_cm = 0.0f;
+    g_height_valid = false;
+    g_msg_buffer_idx = 0;
+    g_in_message = false;
+    memset(g_msg_buffer, 0, sizeof(g_msg_buffer));
+
     // Subscribe to relevant messages
     messagebroker_subscribe(MSG_0004, prv_msg_broker_callback); // Logging control
     messagebroker_subscribe(MSG_1000, prv_msg_broker_callback); // desk command
+    messagebroker_subscribe(MSG_1002, prv_msg_broker_callback); // get desk height
 }
 
 static void prv_deskcontrol_run(void)
 {
-    // Process incoming UART data for request detection
+    // Process incoming UART data for request detection and height messages
     while (SERIAL_INTERFACE.available())
     {
         uint8_t byte = (uint8_t)SERIAL_INTERFACE.read();
+
+        // Check for start of message (0x9B)
+        if (byte == 0x9B && !g_in_message)
+        {
+            g_in_message = true;
+            g_msg_buffer_idx = 0;
+            g_msg_buffer[g_msg_buffer_idx++] = byte;
+        }
+        else if (g_in_message)
+        {
+            if (g_msg_buffer_idx < MAX_MSG_LENGTH)
+            {
+                g_msg_buffer[g_msg_buffer_idx++] = byte;
+
+                // Check if we have at least 2 bytes (start + length)
+                if (g_msg_buffer_idx == 2)
+                {
+                    // We now know the expected message length
+                }
+                else if (g_msg_buffer_idx >= 2)
+                {
+                    uint8_t expected_len = g_msg_buffer[1];
+                    // Full message received (start + length + data + end marker)
+                    if (g_msg_buffer_idx >= (size_t)(expected_len + 2))
+                    {
+                        // Parse the message
+                        if (expected_len >= 1 && g_msg_buffer[2] == HEIGHT_MSG_ID)
+                        {
+                            prv_parse_height_message(g_msg_buffer, g_msg_buffer_idx);
+                        }
+
+                        // Reset for next message
+                        g_in_message = false;
+                        g_msg_buffer_idx = 0;
+                    }
+                }
+            }
+            else
+            {
+                // Buffer overflow, reset
+                g_in_message = false;
+                g_msg_buffer_idx = 0;
+            }
+        }
+
+        // Also feed into request detection
         prv_push_req_byte(byte);
 
         if (prv_req_match())
@@ -211,6 +277,19 @@ static void prv_msg_broker_callback(const msg_t* const message)
                 }
 
                 prv_execute_command(cmd);
+            }
+            break;
+
+        case MSG_1002: // Get desk height
+            if (g_height_valid)
+            {
+                Serial.print("[DeskCtrl] Current height: ");
+                Serial.print(g_current_height_cm);
+                Serial.println(" cm");
+            }
+            else
+            {
+                Serial.println("[DeskCtrl] Height not available yet");
             }
             break;
 
@@ -294,5 +373,109 @@ static void prv_execute_command(desk_command_e cmd)
     if (frame != NULL)
     {
         prv_arm_with(frame);
+    }
+}
+
+// ###########################################################################
+// # Height Parsing Functions
+// ###########################################################################
+
+// Decode 7-segment display byte to digit (0-9)
+static int prv_decode_digit(uint8_t b)
+{
+    // Extract 7-segment bits (ignore bit 7 which is decimal point)
+    bool seg[8];
+    for (int i = 0; i < 8; i++)
+    {
+        seg[i] = (b & (0x01 << i)) != 0;
+    }
+
+    // Decode based on 7-segment pattern
+    if (seg[0] && seg[1] && seg[2] && seg[3] && seg[4] && seg[5] && !seg[6])
+    {
+        return 0;
+    }
+    if (!seg[0] && seg[1] && seg[2] && !seg[3] && !seg[4] && !seg[5] && !seg[6])
+    {
+        return 1;
+    }
+    if (seg[0] && seg[1] && !seg[2] && seg[3] && seg[4] && !seg[5] && seg[6])
+    {
+        return 2;
+    }
+    if (seg[0] && seg[1] && seg[2] && seg[3] && !seg[4] && !seg[5] && seg[6])
+    {
+        return 3;
+    }
+    if (!seg[0] && seg[1] && seg[2] && !seg[3] && !seg[4] && seg[5] && seg[6])
+    {
+        return 4;
+    }
+    if (seg[0] && !seg[1] && seg[2] && seg[3] && !seg[4] && seg[5] && seg[6])
+    {
+        return 5;
+    }
+    if (seg[0] && !seg[1] && seg[2] && seg[3] && seg[4] && seg[5] && seg[6])
+    {
+        return 6;
+    }
+    if (seg[0] && seg[1] && seg[2] && !seg[3] && !seg[4] && !seg[5] && !seg[6])
+    {
+        return 7;
+    }
+    if (seg[0] && seg[1] && seg[2] && seg[3] && seg[4] && seg[5] && seg[6])
+    {
+        return 8;
+    }
+    if (seg[0] && seg[1] && seg[2] && seg[3] && !seg[4] && seg[5] && seg[6])
+    {
+        return 9;
+    }
+
+    return -1; // Invalid digit
+}
+
+// Check if byte has decimal point set (bit 7)
+static bool prv_has_decimal_point(uint8_t byte) { return (byte & 0x80) != 0; }
+
+// Parse height message: 0x9B, len, 0x12, digit1, digit2, digit3, ...
+static void prv_parse_height_message(const uint8_t* msg, size_t len)
+{
+    // Message format: [0]=0x9B, [1]=length, [2]=0x12, [3]=digit1, [4]=digit2, [5]=digit3
+    if (len < 6)
+    {
+        return; // Message too short
+    }
+
+    int digit1 = prv_decode_digit(msg[3]);
+    int digit2 = prv_decode_digit(msg[4]);
+    int digit3 = prv_decode_digit(msg[5]);
+
+    if (digit1 >= 0 && digit2 >= 0 && digit3 >= 0)
+    {
+        float height = digit1 * 100.0f + digit2 * 10.0f + digit3;
+
+        // Check for decimal point in digit2
+        if (prv_has_decimal_point(msg[4]))
+        {
+            height = height / 10.0f;
+        }
+
+        g_current_height_cm = height;
+        g_height_valid = true;
+
+        if (prv_logging_enabled)
+        {
+            Serial.print("[DeskCtrl] Height updated: ");
+            Serial.print(g_current_height_cm);
+            Serial.println(" cm");
+        }
+    }
+    else
+    {
+        if (prv_logging_enabled)
+        {
+            Serial.println("[DeskCtrl] Failed to decode height digits");
+        }
     }
 }

@@ -60,6 +60,7 @@ static int prv_cmd_msgbroker_can_subscribe_and_publish(int argc, char* argv[], v
 
 // Desk Control Test Commands
 static int prv_cmd_deskcontrol_move_command(int argc, char* argv[], void* context);
+static int prv_cmd_deskcontrol_get_height(int argc, char* argv[], void* context);
 
 // Generic Logging Commands
 static int prv_cmd_log_control(int argc, char* argv[], void* context);
@@ -108,6 +109,7 @@ static cli_binding_t cli_bindings[] = {
 
     // Desk Control Commands
     {"desk_move", prv_cmd_deskcontrol_move_command, NULL, "Move desk: desk_move <up|down|p1|p2|p3|p4|wake|memory>"},
+    {"desk_get_height", prv_cmd_deskcontrol_get_height, NULL, "Get current desk height"},
 
     // Presence Detector Commands
     {"presence_set_threshold", prv_cmd_pd_set_threshold, NULL,
@@ -382,6 +384,22 @@ static int prv_cmd_deskcontrol_move_command(int argc, char* argv[], void* contex
 
     messagebroker_publish(&desk_msg);
     cli_print("Moving desk: %s", command);
+    return CLI_OK_STATUS;
+}
+
+static int prv_cmd_deskcontrol_get_height(int argc, char* argv[], void* context)
+{
+    (void)argc;
+    (void)argv;
+    (void)context;
+
+    // Publish message to DeskControl requesting current height
+    msg_t height_msg;
+    height_msg.msg_id = MSG_1002; // Get Desk Height
+    height_msg.data_size = 0;
+    height_msg.data_bytes = NULL;
+
+    messagebroker_publish(&height_msg);
     return CLI_OK_STATUS;
 }
 
