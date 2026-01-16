@@ -39,6 +39,7 @@
 
 // Include Arduino Serial for I/O
 #include <Arduino.h>
+#include <esp_system.h>
 
 // ###########################################################################
 // # Private function declarations
@@ -92,7 +93,7 @@ static cli_cfg_t g_cli_cfg = {0};
 static cli_binding_t cli_bindings[] = {
     // System Commands
     {"system_info", prv_cmd_system_info, NULL, "Show system information"},
-    {"restart", prv_cmd_reset_system, NULL, "Restart the system"},
+    {"restart", prv_cmd_reset_system, NULL, "Hard reset the system"},
 
     // Message Broker Test Commands
     {"msgbroker_test", prv_cmd_msgbroker_can_subscribe_and_publish, NULL, "Test Message Broker subscribe and publish"},
@@ -216,14 +217,16 @@ static int prv_cmd_reset_system(int argc, char* argv[], void* context)
     (void)argv;
     (void)context;
 
-    cli_print("Restarting system in ");
+    cli_print("Hard reset in ");
     for (int i = 3; i > 0; i--)
     {
         cli_print("%d... ", i);
         delay(1000);
     }
     cli_print("\n");
-    ESP.restart();
+
+    // Hardware reset - resets all hardware registers and RAM
+    esp_restart();
 
     return CLI_OK_STATUS;
 }

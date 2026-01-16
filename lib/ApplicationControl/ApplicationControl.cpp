@@ -19,7 +19,7 @@ static prv_mailbox_t g_mailbox = {
     .is_person_present = false,
     .is_countdown_expired = false,
 };
-#define DEFAULT_MINUTES 2
+#define DEFAULT_MINUTES 20
 static u32 timer_interval_ms = DEFAULT_MINUTES * 60 * 1000; // 20 minutes default
 static bool g_run_sequence_once = false;
 static u32 timer_start_timestamp_ms = 0; // Timestamp when countdown timer started
