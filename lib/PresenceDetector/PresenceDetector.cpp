@@ -1,6 +1,7 @@
 #include "PresenceDetector.h"
 #include <Arduino.h>
 #include <NimBLEDevice.h>
+#include <Preferences.h>
 #include <vector>
 #include "MessageBroker.h"
 #include "custom_assert.h"
@@ -10,18 +11,20 @@
 // # Internal Configuration
 // ###########################################################################
 
-#define SCAN_TIME                 5 // Scan duration in seconds
+#define SCAN_TIME                  5 // Scan duration in seconds
 
 // Distance estimation constants
-#define BLE_TX_POWER_AT_1M        -59  // Measured power at 1m in dBm (typical for BLE)
-#define PATH_LOSS_EXPONENT        2.0  // Path loss exponent (2 = free space, 2-4 typical)
-#define DISTANCE_FORMULA_BASE     10.0 // Base for distance calculation formula
+#define BLE_TX_POWER_AT_1M         -59  // Measured power at 1m in dBm (typical for BLE)
+#define PATH_LOSS_EXPONENT         2.0  // Path loss exponent (2 = free space, 2-4 typical)
+#define DISTANCE_FORMULA_BASE      10.0 // Base for distance calculation formula
 
 // Distance category thresholds (in meters)
-#define DISTANCE_CLOSE_DEVICE_MAX 4.0 // Maximum distance to consider a device "close" (4 meters)
+#define DISTANCE_CLOSE_DEVICE_MAX  4.0 // Maximum distance to consider a device "close" (4 meters)
 
 // Presence detection configuration
-static int presence_threshold = 3;     // Minimum number of close devices to detect presence (configurable)
+#define DEFAULT_PRESENCE_THRESHOLD 3 // Default minimum number of close devices
+static int presence_threshold =
+    DEFAULT_PRESENCE_THRESHOLD;        // Minimum number of close devices to detect presence (configurable)
 #define SCAN_INTERVAL_MS          5000 // 5 seconds between scans
 #define AVERAGING_BUFFER_SIZE     12   // Number of samples for 1 minute (60s / 5s = 12)
 #define PRESENCE_CHANGE_THRESHOLD 0.5  // 50% threshold for presence state change
@@ -35,6 +38,7 @@ static bool scan_started = false;
 static NimBLEScan* pBLEScan = nullptr;
 static bool is_logging_enabled = false;
 static unsigned long last_scan_time = 0;
+static Preferences prv_preferences; // Preferences object for NVS storage
 
 // Presence detection state
 static bool presence_detected = false;
@@ -67,6 +71,8 @@ static void prv_update_presence_buffer(bool current_presence);
 static float prv_calculate_presence_average(void);
 
 static void prv_check_and_publish_presence_state(int close_device_count);
+static void prv_load_settings_from_flash(void);
+static void prv_save_threshold_to_flash(void);
 
 // ###########################################################################
 // # Public Function Implementations
@@ -111,6 +117,9 @@ static void prv_presencedetector_task(void* parameter)
 static void prv_presencedetector_init(void)
 {
     ASSERT(!is_initialized);
+
+    // Load settings from flash
+    prv_load_settings_from_flash();
 
     // Initialize BLE
     NimBLEDevice::init("");
@@ -180,6 +189,7 @@ static void prv_msg_broker_callback(const msg_t* const message)
                 if (new_threshold > 0)
                 {
                     presence_threshold = new_threshold;
+                    prv_save_threshold_to_flash(); // Save to flash
                     Serial.print("[PresenceDetect] Threshold set to ");
                     Serial.print(presence_threshold);
                     Serial.println(" devices");
@@ -369,4 +379,33 @@ static void prv_process_scan_results(void)
 
     // Clear old results to prepare for next interval
     pBLEScan->clearResults();
+}
+
+// ###########################################################################
+// # Flash Storage Functions
+// ###########################################################################
+
+static void prv_load_settings_from_flash(void)
+{
+    prv_preferences.begin("presence", true); // Read-only mode
+
+    // Load presence threshold (default to DEFAULT_PRESENCE_THRESHOLD if not found)
+    presence_threshold = prv_preferences.getInt("threshold", DEFAULT_PRESENCE_THRESHOLD);
+
+    prv_preferences.end();
+
+    Serial.print("[PresenceDetect] Loaded threshold from flash: ");
+    Serial.print(presence_threshold);
+    Serial.println(" devices");
+}
+
+static void prv_save_threshold_to_flash(void)
+{
+    prv_preferences.begin("presence", false); // Read-write mode
+
+    prv_preferences.putInt("threshold", presence_threshold);
+
+    prv_preferences.end();
+
+    Serial.println("[PresenceDetect] Threshold saved to flash");
 }

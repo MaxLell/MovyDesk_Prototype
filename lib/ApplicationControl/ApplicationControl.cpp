@@ -1,5 +1,6 @@
 #include "ApplicationControl.h"
 #include <Arduino.h>
+#include <Preferences.h>
 #include "MessageBroker.h"
 #include "MessageDefinitions.h"
 #include "custom_assert.h"
@@ -23,6 +24,7 @@ static prv_mailbox_t g_mailbox = {
 static u32 timer_interval_ms = DEFAULT_MINUTES * 60 * 1000; // 20 minutes default
 static bool g_run_sequence_once = false;
 static u32 timer_start_timestamp_ms = 0; // Timestamp when countdown timer started
+static Preferences prv_preferences;      // Preferences object for NVS storage
 
 // ###########################################################################
 // # Private function declarations
@@ -32,6 +34,8 @@ static void prv_applicationcontrol_init(void);
 static void prv_applicationcontrol_run(void);
 static void prv_msg_broker_callback(const msg_t* const message);
 static void prv_reset_sequence(void);
+static void prv_load_settings_from_flash(void);
+static void prv_save_timer_interval_to_flash(void);
 
 // ###########################################################################
 // # Private variables
@@ -84,6 +88,9 @@ static void prv_applicationcontrol_task(void* parameter)
 
 static void prv_applicationcontrol_init(void)
 {
+    // Load settings from flash
+    prv_load_settings_from_flash();
+
     // Subscribe to 2001, 2002, 3003
     messagebroker_subscribe(MSG_2001, prv_msg_broker_callback); // Presence Detected
     messagebroker_subscribe(MSG_2002, prv_msg_broker_callback); // No Presence Detected
@@ -204,6 +211,7 @@ static void prv_msg_broker_callback(const msg_t* const message)
             if (message->data_size == sizeof(u32))
             {
                 timer_interval_ms = *(u32*)(message->data_bytes);
+                prv_save_timer_interval_to_flash(); // Save to flash
                 Serial.print("[AppCtrl] Timer interval set to ");
                 Serial.print(timer_interval_ms / 60000);
                 Serial.println(" minutes");
@@ -251,4 +259,33 @@ static void prv_reset_sequence(void)
 {
     g_mailbox.is_countdown_expired = false;
     g_run_sequence_once = false;
+}
+
+// ###########################################################################
+// # Flash Storage Functions
+// ###########################################################################
+
+static void prv_load_settings_from_flash(void)
+{
+    prv_preferences.begin("appctrl", true); // Read-only mode
+
+    // Load timer interval (default to DEFAULT_MINUTES if not found)
+    timer_interval_ms = prv_preferences.getUInt("timer_ms", DEFAULT_MINUTES * 60 * 1000);
+
+    prv_preferences.end();
+
+    Serial.print("[AppCtrl] Loaded timer interval from flash: ");
+    Serial.print(timer_interval_ms / 60000);
+    Serial.println(" minutes");
+}
+
+static void prv_save_timer_interval_to_flash(void)
+{
+    prv_preferences.begin("appctrl", false); // Read-write mode
+
+    prv_preferences.putUInt("timer_ms", timer_interval_ms);
+
+    prv_preferences.end();
+
+    Serial.println("[AppCtrl] Timer interval saved to flash");
 }
