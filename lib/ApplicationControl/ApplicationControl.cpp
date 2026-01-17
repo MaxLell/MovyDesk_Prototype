@@ -3,16 +3,16 @@
 #include <Preferences.h>
 #include "MessageBroker.h"
 #include "MessageDefinitions.h"
+#include "NetworkTime.h"
 #include "custom_assert.h"
 #include "custom_types.h"
-#include "NetworkTime.h"
 
 // ###########################################################################
 // # Internal Configuration
 // ###########################################################################
 
 #define TIME_RESTRICTION_START_HOUR 7  // 07:00 AM
-#define TIME_RESTRICTION_END_HOUR 19   // 07:00 PM (19:00)
+#define TIME_RESTRICTION_END_HOUR   18 // 06:00 PM (18:00)
 
 typedef struct
 {
@@ -27,6 +27,7 @@ static prv_mailbox_t g_mailbox = {
 #define DEFAULT_MINUTES 20
 static u32 timer_interval_ms = DEFAULT_MINUTES * 60 * 1000; // 20 minutes default
 static bool g_run_sequence_once = false;
+static bool g_timer_stop_sent = false;   // Flag to prevent repeated timer stop messages
 static u32 timer_start_timestamp_ms = 0; // Timestamp when countdown timer started
 static Preferences prv_preferences;      // Preferences object for NVS storage
 
@@ -132,20 +133,19 @@ static void prv_applicationcontrol_run(void)
         }
 
         if (g_mailbox.is_countdown_expired)
-        {// Check if desk movement is allowed based on time
+        { // Check if desk movement is allowed based on time
             if (!prv_is_desk_movement_allowed())
             {
                 if (prv_logging_enabled)
                 {
                     Serial.println("[AppCtrl] Desk movement not allowed at this time (allowed: 07:00-19:00)");
                 }
-                
+
                 // Reset sequence but don't move desk
                 prv_reset_sequence();
                 return;
             }
 
-            
             if (prv_logging_enabled)
             {
                 Serial.println("[AppCtrl] Action: Toggling desk position");
@@ -172,12 +172,21 @@ static void prv_applicationcontrol_run(void)
     }
     else
     {
-        // Stop the countdown timer if running
-        msg_t timer_msg;
-        timer_msg.msg_id = MSG_3002; // Stop Countdown
-        timer_msg.data_size = 0;
-        timer_msg.data_bytes = NULL;
-        messagebroker_publish(&timer_msg);
+        // Stop the countdown timer if running (only send once)
+        if (!g_timer_stop_sent && g_run_sequence_once)
+        {
+            msg_t timer_msg;
+            timer_msg.msg_id = MSG_3002; // Stop Countdown
+            timer_msg.data_size = 0;
+            timer_msg.data_bytes = NULL;
+            messagebroker_publish(&timer_msg);
+            g_timer_stop_sent = true;
+
+            if (prv_logging_enabled)
+            {
+                Serial.println("[AppCtrl] Timer stopped due to no presence");
+            }
+        }
 
         // Wait before checking again
         delay(10000);
@@ -196,6 +205,7 @@ static void prv_msg_broker_callback(const msg_t* const message)
     {
         case MSG_2001: // Presence Detected
             g_mailbox.is_person_present = true;
+            g_timer_stop_sent = false; // Allow timer stop to be sent again if needed
             if (prv_logging_enabled)
             {
                 Serial.println("[AppCtrl] Event: Presence Detected");
@@ -203,11 +213,12 @@ static void prv_msg_broker_callback(const msg_t* const message)
             break;
         case MSG_2002: // No Presence Detected
             g_mailbox.is_person_present = false;
-            // Reset timer timestamp when presence is lost
+            // Reset the entire sequence when presence is lost
+            prv_reset_sequence();
             timer_start_timestamp_ms = 0;
             if (prv_logging_enabled)
             {
-                Serial.println("[AppCtrl] Event: No Presence Detected");
+                Serial.println("[AppCtrl] Event: No Presence Detected - Sequence reset");
             }
             break;
         case MSG_3003: // Countdown finished
@@ -321,7 +332,7 @@ static bool prv_is_desk_movement_allowed(void)
     }
 
     int current_hour = networktime_get_current_hour();
-    
+
     // Check if current hour is within allowed range (07:00 to 19:00)
     if (current_hour >= TIME_RESTRICTION_START_HOUR && current_hour < TIME_RESTRICTION_END_HOUR)
     {

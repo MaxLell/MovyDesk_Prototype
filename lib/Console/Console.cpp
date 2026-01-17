@@ -641,9 +641,17 @@ static int prv_cmd_wifi_set_credentials(int argc, char* argv[], void* context)
     const char* ssid = argv[1];
     const char* password = argv[2];
 
-    // Include NetworkTime.h to access the function
-    extern void networktime_set_wifi_credentials(const char* ssid, const char* password);
-    networktime_set_wifi_credentials(ssid, password);
+    // Publish message to NetworkTime to set WiFi credentials
+    // Create a static buffer to hold the credentials data
+    static char credentials_buffer[100];
+    snprintf(credentials_buffer, sizeof(credentials_buffer), "%s|%s", ssid, password);
+
+    msg_t wifi_msg;
+    wifi_msg.msg_id = MSG_5001; // Set WiFi Credentials
+    wifi_msg.data_size = strlen(credentials_buffer) + 1;
+    wifi_msg.data_bytes = (u8*)credentials_buffer;
+
+    messagebroker_publish(&wifi_msg);
 
     cli_print("WiFi credentials set. Connecting...");
     return CLI_OK_STATUS;
