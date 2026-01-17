@@ -5,10 +5,14 @@
 #include "MessageDefinitions.h"
 #include "custom_assert.h"
 #include "custom_types.h"
+#include "NetworkTime.h"
 
 // ###########################################################################
 // # Internal Configuration
 // ###########################################################################
+
+#define TIME_RESTRICTION_START_HOUR 7  // 07:00 AM
+#define TIME_RESTRICTION_END_HOUR 19   // 07:00 PM (19:00)
 
 typedef struct
 {
@@ -36,6 +40,7 @@ static void prv_msg_broker_callback(const msg_t* const message);
 static void prv_reset_sequence(void);
 static void prv_load_settings_from_flash(void);
 static void prv_save_timer_interval_to_flash(void);
+static bool prv_is_desk_movement_allowed(void);
 
 // ###########################################################################
 // # Private variables
@@ -127,7 +132,20 @@ static void prv_applicationcontrol_run(void)
         }
 
         if (g_mailbox.is_countdown_expired)
-        {
+        {// Check if desk movement is allowed based on time
+            if (!prv_is_desk_movement_allowed())
+            {
+                if (prv_logging_enabled)
+                {
+                    Serial.println("[AppCtrl] Desk movement not allowed at this time (allowed: 07:00-19:00)");
+                }
+                
+                // Reset sequence but don't move desk
+                prv_reset_sequence();
+                return;
+            }
+
+            
             if (prv_logging_enabled)
             {
                 Serial.println("[AppCtrl] Action: Toggling desk position");
@@ -288,4 +306,41 @@ static void prv_save_timer_interval_to_flash(void)
     prv_preferences.end();
 
     Serial.println("[AppCtrl] Timer interval saved to flash");
+}
+
+static bool prv_is_desk_movement_allowed(void)
+{
+    // If time is not synchronized, allow movement (fail-safe)
+    if (!networktime_is_synchronized())
+    {
+        if (prv_logging_enabled)
+        {
+            Serial.println("[AppCtrl] Time not synchronized, allowing desk movement");
+        }
+        return true;
+    }
+
+    int current_hour = networktime_get_current_hour();
+    
+    // Check if current hour is within allowed range (07:00 to 19:00)
+    if (current_hour >= TIME_RESTRICTION_START_HOUR && current_hour < TIME_RESTRICTION_END_HOUR)
+    {
+        if (prv_logging_enabled)
+        {
+            Serial.print("[AppCtrl] Current hour ");
+            Serial.print(current_hour);
+            Serial.println(" - Desk movement allowed");
+        }
+        return true;
+    }
+    else
+    {
+        if (prv_logging_enabled)
+        {
+            Serial.print("[AppCtrl] Current hour ");
+            Serial.print(current_hour);
+            Serial.println(" - Desk movement NOT allowed (outside 07:00-19:00)");
+        }
+        return false;
+    }
 }

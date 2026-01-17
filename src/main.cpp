@@ -4,6 +4,7 @@
 #include "Console.h"
 #include "DeskControl.h"
 #include "MessageBroker.h"
+#include "NetworkTime.h"
 #include "PresenceDetector.h"
 #include "TimerManager.h"
 #include "custom_assert.h"
@@ -26,6 +27,7 @@ TaskHandle_t deskcontrol_task_handle = NULL;
 TaskHandle_t presencedetector_task_handle = NULL;
 TaskHandle_t applicationcontrol_task_handle = NULL;
 TaskHandle_t timermanager_task_handle = NULL;
+TaskHandle_t networktime_task_handle = NULL;
 
 // ###########################################################################
 // # Private Data
@@ -50,6 +52,7 @@ void setup()
     deskcontrol_task_handle = deskcontrol_create_task();
     applicationcontrol_task_handle = applicationcontrol_create_task();
     timermanager_task_handle = timermanager_create_task();
+    networktime_task_handle = networktime_create_task();
 
     // Stabilize the power on the system to avoid brownout issues on ESP32
     // The presence detector task requires more power during bluetooth scanning
@@ -100,6 +103,7 @@ static void prv_assert_failed(const char* file, uint32_t line, const char* expr)
     vTaskSuspend(presencedetector_task_handle);
     vTaskSuspend(applicationcontrol_task_handle);
     vTaskSuspend(timermanager_task_handle);
+    vTaskSuspend(networktime_task_handle);
 
     while (1)
     {

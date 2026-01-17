@@ -65,7 +65,6 @@ static int prv_cmd_deskcontrol_get_height(int argc, char* argv[], void* context)
 // Generic Logging Commands
 static int prv_cmd_log_control(int argc, char* argv[], void* context);
 
-// Presence Detector Test Commands
 static int prv_cmd_pd_start_logging(int argc, char* argv[], void* context);
 static int prv_cmd_pd_stop_logging(int argc, char* argv[], void* context);
 static int prv_cmd_pd_set_threshold(int argc, char* argv[], void* context);
@@ -78,6 +77,12 @@ static int prv_cmd_timer_start_countdown(int argc, char* argv[], void* context);
 static int prv_cmd_appctrl_set_timer_interval(int argc, char* argv[], void* context);
 static int prv_cmd_appctrl_get_timer_interval(int argc, char* argv[], void* context);
 static int prv_cmd_appctrl_get_elapsed_time(int argc, char* argv[], void* context);
+
+// Network Time / WiFi Commands
+static int prv_cmd_wifi_set_credentials(int argc, char* argv[], void* context);
+static int prv_cmd_wifi_get_credentials(int argc, char* argv[], void* context);
+static int prv_cmd_wifi_get_status(int argc, char* argv[], void* context);
+static int prv_cmd_time_get_info(int argc, char* argv[], void* context);
 
 // ###########################################################################
 // # Private Variables
@@ -105,7 +110,7 @@ static cli_binding_t cli_bindings[] = {
     {"msgbroker_test", prv_cmd_msgbroker_can_subscribe_and_publish, NULL, "Test Message Broker subscribe and publish"},
 
     // Logging Commands
-    {"log", prv_cmd_log_control, NULL, "Control module logging: log <on|off> <appctrl|desk|presence>"},
+    {"log", prv_cmd_log_control, NULL, "Control module logging: log <on|off> <appctrl|desk|presence|nettime>"},
 
     // Desk Control Commands
     {"desk_move", prv_cmd_deskcontrol_move_command, NULL, "Move desk: desk_move <up|down|p1|p2|p3|p4|wake|memory>"},
@@ -125,6 +130,12 @@ static cli_binding_t cli_bindings[] = {
     {"appctrl_get_time", prv_cmd_appctrl_get_timer_interval, NULL, "Gets the current timer interval: appctrl_get_time"},
     {"appctrl_elapsed_time", prv_cmd_appctrl_get_elapsed_time, NULL,
      "Gets elapsed timer countdown time: appctrl_elapsed_time"},
+
+    // Network Time / WiFi Commands
+    {"wifi_set", prv_cmd_wifi_set_credentials, NULL, "Set WiFi credentials: wifi_set <ssid> <password>"},
+    {"wifi_get", prv_cmd_wifi_get_credentials, NULL, "Get WiFi credentials"},
+    {"wifi_status", prv_cmd_wifi_get_status, NULL, "Get WiFi connection status"},
+    {"time_get", prv_cmd_time_get_info, NULL, "Get current time and weekday"},
 
 };
 
@@ -410,7 +421,7 @@ static int prv_cmd_log_control(int argc, char* argv[], void* context)
 
     if (argc < 3)
     {
-        cli_print("Usage: log <on|off> <appctrl|deskctrl|presence>");
+        cli_print("Usage: log <on|off> <appctrl|deskctrl|presence|nettime>");
         return CLI_FAIL_STATUS;
     }
 
@@ -449,9 +460,14 @@ static int prv_cmd_log_control(int argc, char* argv[], void* context)
         msg_id = MSG_0005;
         module_name = "PresenceDetector";
     }
+    else if (strcmp(argv[2], "nettime") == 0)
+    {
+        msg_id = MSG_0006;
+        module_name = "NetworkTime";
+    }
     else
     {
-        cli_print("Error: Unknown module. Use 'appctrl', 'desk', or 'presence'");
+        cli_print("Error: Unknown module. Use 'appctrl', 'desk', 'presence', or 'nettime'");
         return CLI_FAIL_STATUS;
     }
 
@@ -608,5 +624,75 @@ static int prv_cmd_appctrl_get_elapsed_time(int argc, char* argv[], void* contex
     get_elapsed_msg.data_bytes = NULL;
 
     messagebroker_publish(&get_elapsed_msg);
+    return CLI_OK_STATUS;
+}
+
+// Network Time / WiFi Command Handlers
+static int prv_cmd_wifi_set_credentials(int argc, char* argv[], void* context)
+{
+    (void)context;
+
+    if (argc != 3)
+    {
+        cli_print("Usage: wifi_set <ssid> <password>");
+        return CLI_FAIL_STATUS;
+    }
+
+    const char* ssid = argv[1];
+    const char* password = argv[2];
+
+    // Include NetworkTime.h to access the function
+    extern void networktime_set_wifi_credentials(const char* ssid, const char* password);
+    networktime_set_wifi_credentials(ssid, password);
+
+    cli_print("WiFi credentials set. Connecting...");
+    return CLI_OK_STATUS;
+}
+
+static int prv_cmd_wifi_get_credentials(int argc, char* argv[], void* context)
+{
+    (void)argc;
+    (void)argv;
+    (void)context;
+
+    // Publish message to NetworkTime requesting WiFi credentials
+    msg_t wifi_msg;
+    wifi_msg.msg_id = MSG_5002; // Get WiFi Credentials
+    wifi_msg.data_size = 0;
+    wifi_msg.data_bytes = NULL;
+
+    messagebroker_publish(&wifi_msg);
+    return CLI_OK_STATUS;
+}
+
+static int prv_cmd_wifi_get_status(int argc, char* argv[], void* context)
+{
+    (void)argc;
+    (void)argv;
+    (void)context;
+
+    // Publish message to NetworkTime requesting WiFi status
+    msg_t status_msg;
+    status_msg.msg_id = MSG_5003; // Get WiFi Status
+    status_msg.data_size = 0;
+    status_msg.data_bytes = NULL;
+
+    messagebroker_publish(&status_msg);
+    return CLI_OK_STATUS;
+}
+
+static int prv_cmd_time_get_info(int argc, char* argv[], void* context)
+{
+    (void)argc;
+    (void)argv;
+    (void)context;
+
+    // Publish message to NetworkTime requesting time info
+    msg_t time_msg;
+    time_msg.msg_id = MSG_5004; // Get Time Info
+    time_msg.data_size = 0;
+    time_msg.data_bytes = NULL;
+
+    messagebroker_publish(&time_msg);
     return CLI_OK_STATUS;
 }
