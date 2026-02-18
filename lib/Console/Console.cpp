@@ -31,6 +31,7 @@
  */
 
 #include "Console.h"
+#include "ADXL345.h"
 #include "Cli.h"
 #include "MessageBroker.h"
 #include "MessageDefinitions.h"
@@ -40,6 +41,7 @@
 // Include Arduino Serial for I/O
 #include <Arduino.h>
 #include <esp_system.h>
+#include <math.h>
 
 // ###########################################################################
 // # Private function declarations
@@ -83,6 +85,13 @@ static int prv_cmd_wifi_set_credentials(int argc, char* argv[], void* context);
 static int prv_cmd_wifi_get_credentials(int argc, char* argv[], void* context);
 static int prv_cmd_wifi_get_status(int argc, char* argv[], void* context);
 static int prv_cmd_time_get_info(int argc, char* argv[], void* context);
+
+// ADXL345 Commands
+static int prv_cmd_adxl_stream(int argc, char* argv[], void* context);
+
+static float prv_calc_roll_deg(const adxl345_accel_g_t& accel);
+static float prv_calc_pitch_deg(const adxl345_accel_g_t& accel);
+static float prv_calc_tilt_deg(const adxl345_accel_g_t& accel);
 
 // ###########################################################################
 // # Private Variables
@@ -136,6 +145,10 @@ static cli_binding_t cli_bindings[] = {
     {"wifi_get", prv_cmd_wifi_get_credentials, NULL, "Get WiFi credentials"},
     {"wifi_status", prv_cmd_wifi_get_status, NULL, "Get WiFi connection status"},
     {"time_get", prv_cmd_time_get_info, NULL, "Get current time and weekday"},
+
+    // ADXL345 Commands
+    {"adxl_stream", prv_cmd_adxl_stream, NULL,
+     "Stream ADXL345 data: adxl_stream [interval_ms], stop with Enter"},
 
 };
 
@@ -703,4 +716,134 @@ static int prv_cmd_time_get_info(int argc, char* argv[], void* context)
 
     messagebroker_publish(&time_msg);
     return CLI_OK_STATUS;
+}
+
+static int prv_cmd_adxl_stream(int argc, char* argv[], void* context)
+{
+    (void)context;
+
+    int interval_ms = 200;
+    if (argc > 2)
+    {
+        cli_print("Usage: adxl_stream [interval_ms]");
+        return CLI_FAIL_STATUS;
+    }
+
+    if (argc == 2)
+    {
+        interval_ms = atoi(argv[1]);
+        if (interval_ms < 20)
+        {
+            cli_print("Error: interval_ms must be >= 20");
+            return CLI_FAIL_STATUS;
+        }
+    }
+
+    if (!adxl345_init(ADXL345_DEFAULT_I2C_ADDRESS))
+    {
+        cli_print("ADXL345 init failed. Check wiring/power (I2C address 0x53).");
+        return CLI_FAIL_STATUS;
+    }
+
+    if (!adxl345_set_data_rate(ADXL345_RATE_100_HZ))
+    {
+        cli_print("ADXL345 config failed (data rate).");
+        return CLI_FAIL_STATUS;
+    }
+
+    if (!adxl345_set_range(ADXL345_RANGE_2G))
+    {
+        cli_print("ADXL345 config failed (range).");
+        return CLI_FAIL_STATUS;
+    }
+
+    while (Serial.available() > 0)
+    {
+        (void)Serial.read();
+    }
+
+    cli_print("Streaming ADXL345... Press Enter to stop.");
+    Serial.println("X[g]      Y[g]      Z[g]      Roll[deg] Pitch[deg] Tilt[deg] dRoll[deg/s] dPitch[deg/s]");
+
+    bool first_sample = true;
+    unsigned long previous_sample_time_ms = 0;
+    float previous_roll_deg = 0.0f;
+    float previous_pitch_deg = 0.0f;
+
+    unsigned long last_output_time_ms = 0;
+    while (1)
+    {
+        if (Serial.available() > 0)
+        {
+            const char c = (char)Serial.read();
+            if ((c == '\n') || (c == '\r'))
+            {
+                while (Serial.available() > 0)
+                {
+                    (void)Serial.read();
+                }
+                break;
+            }
+        }
+
+        const unsigned long now_ms = millis();
+        if ((now_ms - last_output_time_ms) < (unsigned long)interval_ms)
+        {
+            delay(5);
+            continue;
+        }
+        last_output_time_ms = now_ms;
+
+        adxl345_accel_g_t accel = {0};
+        if (!adxl345_read_accel_g(&accel))
+        {
+            cli_print("Read failed - stopping stream.");
+            return CLI_FAIL_STATUS;
+        }
+
+        const float roll_deg = prv_calc_roll_deg(accel);
+        const float pitch_deg = prv_calc_pitch_deg(accel);
+        const float tilt_deg = prv_calc_tilt_deg(accel);
+
+        float roll_rate_deg_s = 0.0f;
+        float pitch_rate_deg_s = 0.0f;
+
+        if (!first_sample)
+        {
+            const float dt_s = ((float)(now_ms - previous_sample_time_ms)) / 1000.0f;
+            if (dt_s > 0.0f)
+            {
+                roll_rate_deg_s = (roll_deg - previous_roll_deg) / dt_s;
+                pitch_rate_deg_s = (pitch_deg - previous_pitch_deg) / dt_s;
+            }
+        }
+
+        previous_roll_deg = roll_deg;
+        previous_pitch_deg = pitch_deg;
+        previous_sample_time_ms = now_ms;
+        first_sample = false;
+
+        Serial.printf("%+0.3f    %+0.3f    %+0.3f    %+7.2f   %+8.2f   %+7.2f   %+10.2f   %+11.2f\n", accel.x_g,
+                      accel.y_g, accel.z_g, roll_deg, pitch_deg, tilt_deg, roll_rate_deg_s, pitch_rate_deg_s);
+    }
+
+    cli_print("ADXL345 stream stopped.");
+    return CLI_OK_STATUS;
+}
+
+static float prv_calc_roll_deg(const adxl345_accel_g_t& accel)
+{
+    return atan2f(accel.y_g, accel.z_g) * (180.0f / PI);
+}
+
+static float prv_calc_pitch_deg(const adxl345_accel_g_t& accel)
+{
+    const float denominator = sqrtf((accel.y_g * accel.y_g) + (accel.z_g * accel.z_g));
+    return atan2f(-accel.x_g, denominator) * (180.0f / PI);
+}
+
+static float prv_calc_tilt_deg(const adxl345_accel_g_t& accel)
+{
+    const float xy_magnitude = sqrtf((accel.x_g * accel.x_g) + (accel.y_g * accel.y_g));
+    return atan2f(xy_magnitude, accel.z_g) * (180.0f / PI);
 }
