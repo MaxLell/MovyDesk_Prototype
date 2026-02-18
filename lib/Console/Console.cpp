@@ -35,13 +35,13 @@
 #include "Cli.h"
 #include "MessageBroker.h"
 #include "MessageDefinitions.h"
+#include "Orientation.h"
 #include "custom_assert.h"
 #include "custom_types.h"
 
 // Include Arduino Serial for I/O
 #include <Arduino.h>
 #include <esp_system.h>
-#include <math.h>
 
 // ###########################################################################
 // # Private function declarations
@@ -88,10 +88,6 @@ static int prv_cmd_time_get_info(int argc, char* argv[], void* context);
 
 // ADXL345 Commands
 static int prv_cmd_adxl_stream(int argc, char* argv[], void* context);
-
-static float prv_calc_roll_deg(const adxl345_accel_g_t& accel);
-static float prv_calc_pitch_deg(const adxl345_accel_g_t& accel);
-static float prv_calc_tilt_deg(const adxl345_accel_g_t& accel);
 
 // ###########################################################################
 // # Private Variables
@@ -732,9 +728,9 @@ static int prv_cmd_adxl_stream(int argc, char* argv[], void* context)
     if (argc == 2)
     {
         interval_ms = atoi(argv[1]);
-        if (interval_ms < 20)
+        if (interval_ms < 10)
         {
-            cli_print("Error: interval_ms must be >= 20");
+            cli_print("Error: interval_ms must be >= 10");
             return CLI_FAIL_STATUS;
         }
     }
@@ -745,7 +741,7 @@ static int prv_cmd_adxl_stream(int argc, char* argv[], void* context)
         return CLI_FAIL_STATUS;
     }
 
-    if (!adxl345_set_data_rate(ADXL345_RATE_100_HZ))
+    if (!adxl345_set_data_rate(ADXL345_RATE_200_HZ))
     {
         cli_print("ADXL345 config failed (data rate).");
         return CLI_FAIL_STATUS;
@@ -762,13 +758,11 @@ static int prv_cmd_adxl_stream(int argc, char* argv[], void* context)
         (void)Serial.read();
     }
 
-    cli_print("Streaming ADXL345... Press Enter to stop.");
-    Serial.println("X[g]      Y[g]      Z[g]      Roll[deg] Pitch[deg] Tilt[deg] dRoll[deg/s] dPitch[deg/s]");
+    cli_print("Streaming ADXL345... Press Enter to stop. Interval: %d ms", interval_ms);
+    Serial.println("X[g]      Y[g]      Z[g]      |Roll|    |Pitch|   |Tilt|    |Omega|[deg/s]");
 
-    bool first_sample = true;
-    unsigned long previous_sample_time_ms = 0;
-    float previous_roll_deg = 0.0f;
-    float previous_pitch_deg = 0.0f;
+    orientation_estimator_t orientation_estimator = {0};
+    orientation_estimator_init(&orientation_estimator);
 
     unsigned long last_output_time_ms = 0;
     while (1)
@@ -801,49 +795,18 @@ static int prv_cmd_adxl_stream(int argc, char* argv[], void* context)
             return CLI_FAIL_STATUS;
         }
 
-        const float roll_deg = prv_calc_roll_deg(accel);
-        const float pitch_deg = prv_calc_pitch_deg(accel);
-        const float tilt_deg = prv_calc_tilt_deg(accel);
-
-        float roll_rate_deg_s = 0.0f;
-        float pitch_rate_deg_s = 0.0f;
-
-        if (!first_sample)
+        orientation_result_t orientation = {0};
+        if (!orientation_estimator_update(&orientation_estimator, &accel, (uint32_t)now_ms, &orientation))
         {
-            const float dt_s = ((float)(now_ms - previous_sample_time_ms)) / 1000.0f;
-            if (dt_s > 0.0f)
-            {
-                roll_rate_deg_s = (roll_deg - previous_roll_deg) / dt_s;
-                pitch_rate_deg_s = (pitch_deg - previous_pitch_deg) / dt_s;
-            }
+            cli_print("Orientation calculation failed - stopping stream.");
+            return CLI_FAIL_STATUS;
         }
 
-        previous_roll_deg = roll_deg;
-        previous_pitch_deg = pitch_deg;
-        previous_sample_time_ms = now_ms;
-        first_sample = false;
-
-        Serial.printf("%+0.3f    %+0.3f    %+0.3f    %+7.2f   %+8.2f   %+7.2f   %+10.2f   %+11.2f\n", accel.x_g,
-                      accel.y_g, accel.z_g, roll_deg, pitch_deg, tilt_deg, roll_rate_deg_s, pitch_rate_deg_s);
+        Serial.printf("%+0.3f    %+0.3f    %+0.3f    %+7.2f   %+7.2f   %+7.2f   %+10.2f\n", accel.x_g, accel.y_g,
+                      accel.z_g, orientation.abs_roll_deg, orientation.abs_pitch_deg, orientation.abs_tilt_deg,
+                      orientation.abs_omega_deg_s);
     }
 
     cli_print("ADXL345 stream stopped.");
     return CLI_OK_STATUS;
-}
-
-static float prv_calc_roll_deg(const adxl345_accel_g_t& accel)
-{
-    return atan2f(accel.y_g, accel.z_g) * (180.0f / PI);
-}
-
-static float prv_calc_pitch_deg(const adxl345_accel_g_t& accel)
-{
-    const float denominator = sqrtf((accel.y_g * accel.y_g) + (accel.z_g * accel.z_g));
-    return atan2f(-accel.x_g, denominator) * (180.0f / PI);
-}
-
-static float prv_calc_tilt_deg(const adxl345_accel_g_t& accel)
-{
-    const float xy_magnitude = sqrtf((accel.x_g * accel.x_g) + (accel.y_g * accel.y_g));
-    return atan2f(xy_magnitude, accel.z_g) * (180.0f / PI);
 }
